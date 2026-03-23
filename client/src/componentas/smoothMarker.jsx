@@ -1,8 +1,9 @@
 import { Marker } from "react-leaflet";
 import { useEffect, useRef, useState } from "react";
-import { droneIcon } from "../icons/drone";
 
-export default function SmoothMarker({ position }) {
+
+export default function SmoothMarker({ position,icon }) {
+  if(!icon) return null
     const [smoothPos, setSmoothPos] = useState(position);
     const prevPos = useRef(position);
   
@@ -32,5 +33,5 @@ export default function SmoothMarker({ position }) {
       return () => cancelAnimationFrame(frame);
     }, [position]);
   
-    return <Marker position={smoothPos} icon={droneIcon}/>;
+    return <Marker position={smoothPos} icon={icon}/>;
   }

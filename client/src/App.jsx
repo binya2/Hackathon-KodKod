@@ -50,14 +50,14 @@ export default function App() {
               drones: [
                 {
                   drone_id: "1",
-                  telemetry: { lat: 31.705, lon: 35.205 },
+                  telemetry: { lat: 31.705, lon: 35.205},
                 },
               ],
             },
           ],
         },
       });
-    }, 500);
+    }, 1500);
     return () => clearInterval(interval);
   }, []);
   return (
