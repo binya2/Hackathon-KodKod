@@ -1,10 +1,11 @@
-import json
 import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
 from aiokafka import AIOKafkaConsumer
+from fastapi import FastAPI
+
 from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole
 
 # %% Global State Setup
@@ -16,6 +17,7 @@ _global_state = WorldState()
 _drones_registry = {}
 _targets_registry = {}
 
+
 # %% Kafka Consumer Task Logic
 
 async def kafka_consumer_task():
@@ -26,7 +28,7 @@ async def kafka_consumer_task():
         group_id="state_aggregator_group",
         value_deserializer=lambda m: json.loads(m.decode("utf-8"))
     )
-    
+
     await consumer.start()
     try:
         async for msg in consumer:
@@ -36,21 +38,22 @@ async def kafka_consumer_task():
                     _drones_registry[tel.drone_id] = tel
                 except Exception as e:
                     logger.error(f"Error parsing telemetry: {e}")
-            
+
             elif msg.topic == "target.raw":
                 try:
                     tgt = TargetTelemetry(**msg.value)
                     _targets_registry[tgt.target_id] = tgt
                 except Exception as e:
                     logger.error(f"Error parsing target: {e}")
-            
+
             # Update global state snapshot
             _global_state.recon_data = [d for d in _drones_registry.values() if d.role == DroneRole.RECON]
             _global_state.attack_data = [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK]
             _global_state.target_data = list(_targets_registry.values())
-            
+
     finally:
         await consumer.stop()
+
 
 # %% FastAPI App & Lifespan
 
@@ -66,12 +69,15 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         logger.info("Kafka consumer task stopped.")
 
+
 app = FastAPI(title="State Aggregator API", lifespan=lifespan)
+
 
 @app.get("/api/state", response_model=WorldState)
 async def get_state():
     """Returns the latest unified World State."""
     return _global_state
+
 
 # %% Mock Data Generation Cell
 
@@ -80,20 +86,20 @@ async def get_state():
 if __name__ == "__main__":
     import json
     from datetime import datetime
-    
+
     mock_state = WorldState(
         timestamp=datetime.utcnow(),
         target_data=[{
-            "target_id": "TGT_001", "target_type": "vehicle", 
+            "target_id": "TGT_001", "target_type": "vehicle",
             "position": {"lat": 32.1, "lon": 34.8}, "confidence": 0.99
         }],
         recon_data=[{
-            "drone_id": "RECON_1", "role": "recon", 
+            "drone_id": "RECON_1", "role": "recon",
             "position": {"lat": 32.11, "lon": 34.81, "alt": 150.0},
             "velocity": 10.0, "heading": 0.0, "battery_percent": 90.0
         }]
     )
-    
+
     with open("mock_data.json", "w") as f:
         json.dump(mock_state.model_dump(mode='json'), f, indent=4)
     print("Generated mock_data.json")

@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
-from typing import List, Dict, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
 
 # %% Models Definition
 
@@ -11,10 +14,12 @@ class DroneRole(str, Enum):
     ATTACK = "attack"
     RELAY = "relay"
 
+
 class GeoPoint(BaseModel):
     lat: float
     lon: float
     alt: Optional[float] = None
+
 
 class DroneTelemetry(BaseModel):
     drone_id: str
@@ -25,10 +30,12 @@ class DroneTelemetry(BaseModel):
     heading: float
     battery_percent: float
 
+
 class TargetType(str, Enum):
     VEHICLE = "vehicle"
     INFANTRY = "infantry"
     STRUCTURE = "structure"
+
 
 class TargetTelemetry(BaseModel):
     target_id: str
@@ -36,6 +43,7 @@ class TargetTelemetry(BaseModel):
     target_type: TargetType
     position: GeoPoint
     confidence: float
+
 
 class WorldState(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
