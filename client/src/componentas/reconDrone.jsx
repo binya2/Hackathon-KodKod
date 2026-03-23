@@ -1,5 +1,6 @@
 import SmoothMarker from "./smoothMarker";
 import { Circle } from "react-leaflet";
+import { droneIcon } from "../icons/drone";
 
 export default function ReconDrone({ data }) {
   if (!data) return null;
@@ -8,7 +9,7 @@ export default function ReconDrone({ data }) {
 
   return (
     <>
-      <SmoothMarker position={position} />
+      <SmoothMarker position={position} icon={droneIcon}/>
 
       <Circle
         center={position}

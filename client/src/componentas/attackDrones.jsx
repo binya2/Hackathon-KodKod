@@ -1,4 +1,5 @@
 import SmoothMarker from "./smoothMarker";
+import { dronAttack } from "../icons/drone";
 
 export default function AttackDrones({ squads }) {
   if (!squads) return null;
@@ -8,6 +9,7 @@ export default function AttackDrones({ squads }) {
       <SmoothMarker
         key={drone.drone_id}
         position={[drone.telemetry.lat, drone.telemetry.lon]}
+        icon={dronAttack}
       />
     ))
   )
