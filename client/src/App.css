@@ -1,0 +1,7 @@
+.attack {
+    filter: invert(19%) sepia(96%) saturate(481%) hue-rotate(0deg) brightness(67%) contrast(119%);
+}
+
+.recon {
+    filter: invert(19%) sepia(96%) saturate(481%) hue-rotate(90deg) brightness(87%) contrast(119%);
+}
