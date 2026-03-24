@@ -57,3 +57,7 @@ setInterval(() => {
     handleIncomingTelemetry(getMockData());
 }, 500);
 
+setInterval(() => {
+    const freshData = getMockData();
+    handleIncomingTelemetry(freshData);
+}, 500);
