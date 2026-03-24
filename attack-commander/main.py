@@ -1,6 +1,5 @@
 import os
 import json
-import argparse
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -19,9 +18,18 @@ app = FastAPI(title="Attack Commander Service")
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC_COMMANDS = "commands.attack"
 
+def delivery_report(err, msg):
+    if err is not None:
+        print(f"[KAFKA-PRODUCER] Failed: {err}")
+    else:
+        print(f"[KAFKA-PRODUCER] Command sent to {msg.topic()} [{msg.partition()}]")
+
+print(f"[SYSTEM] Attack Commander connecting to Kafka: {KAFKA_BOOTSTRAP}")
+
 producer_conf = {
     "bootstrap.servers": KAFKA_BOOTSTRAP,
-    "client.id": "attack-commander"
+    "client.id": "attack-commander",
+    "allow.auto.create.topics": "true"
 }
 producer = Producer(producer_conf)
 
@@ -31,10 +39,11 @@ def iso8601_utc_now() -> str:
 # --- Endpoints ---
 @app.post("/engage")
 async def engage(req: EngageRequest):
+    print(f"[API] Engage: {req.drone_id} vs {req.target_id}")
+    
     if req.action != "engage":
-        raise HTTPException(status_code=400, detail="Invalid action. Expected 'engage'.")
+        raise HTTPException(status_code=400, detail="Invalid action.")
 
-    # Construct Kafka event
     payload = {
         "drone_id": req.drone_id,
         "action": "EXECUTE_STRIKE",
@@ -46,13 +55,14 @@ async def engage(req: EngageRequest):
         producer.produce(
             topic=TOPIC_COMMANDS,
             key=req.drone_id,
-            value=json.dumps(payload)
+            value=json.dumps(payload),
+            callback=delivery_report
         )
-        producer.flush(1) # Ensure delivery for this simple example
-        print(f"[CMD] EXECUTE_STRIKE sent for {req.drone_id}")
+        producer.flush(1.0) # Force delivery
         return {"status": "command_sent", "payload": payload}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Kafka error: {str(e)}")
+        print(f"[ERROR] Kafka Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health():

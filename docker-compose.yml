@@ -4,7 +4,6 @@ services:
     ports:
       - "9092:9092"
     environment:
-      # KRaft mode (no ZooKeeper)
       - KAFKA_ENABLE_KRAFT=yes
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_NODE_ID=1
@@ -16,22 +15,51 @@ services:
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
-      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
-      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
-      - KAFKA_LOG_DIRS=/tmp/kraft-combined-logs
-      - KAFKA_METADATA_LOG_DIR=/tmp/kraft-metadata-logs
-      # Any stable base64 cluster id works; this is fine for local testing.
       - CLUSTER_ID=MTkwSDkzMDg5KTdFNDJCRU
-      - KAFKA_JMX_HOSTNAME=localhost
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
+  drone-simulator:
+    build: ./drone-simulators
+    command: ["python", "-u", "drones_sim.py"] # -u for unbuffered
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  target-simulator:
+    build: ./drone-simulators
+    command: ["python", "-u", "target_sim.py"] # -u for unbuffered
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  attack-commander:
+    build: ./attack-commander
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      kafka:
+        condition: service_healthy
