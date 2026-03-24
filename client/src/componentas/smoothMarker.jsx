@@ -2,7 +2,7 @@ import { Marker } from "react-leaflet";
 import { useEffect, useRef, useState } from "react";
 
 
-export default function SmoothMarker({ position,icon }) {
+export default function SmoothMarker({ position,icon ,eventHandlers}) {
   if(!icon) return null
     const [smoothPos, setSmoothPos] = useState(position);
     const prevPos = useRef(position);
@@ -33,5 +33,5 @@ export default function SmoothMarker({ position,icon }) {
       return () => cancelAnimationFrame(frame);
     }, [position]);
   
-    return <Marker position={smoothPos} icon={icon}/>;
+    return <Marker position={smoothPos} icon={icon} eventHandlers={eventHandlers}/>;
   }
