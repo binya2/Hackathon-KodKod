@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import MapView from "./componentas/mapView";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import AttackPanel from "./componentas/attackPanel";
+import VideoPanel from "./componentas/videoPanel";
 
 // const WS_URL = "ws://localhost:8000/ws";
 
@@ -15,6 +17,19 @@ L.Icon.Default.mergeOptions({
 
 export default function App() {
   const [data, setData] = useState(null);
+  const handleEngage = (droneId) => {
+    fetch("http://localhost:8000/engage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "engage",
+        target_id: "TGT-1",
+        drone_id: droneId,
+      }),
+    });
+  };
 
   // useEffect(() => {
   //   const ws = new WebSocket(WS_URL);
@@ -42,7 +57,7 @@ export default function App() {
           ],
         },
         recon_data: {
-          telemetry: { lat: 31.7, lon: 35.2},
+          telemetry: { lat: 31.7, lon: 35.2 },
         },
         attack_data: {
           squads: [
@@ -50,7 +65,11 @@ export default function App() {
               drones: [
                 {
                   drone_id: "1",
-                  telemetry: { lat: 31.705, lon: 35.205},
+                  telemetry: { lat: 31.705, lon: 35.205 },
+                },
+                {
+                  drone_id: "1",
+                  telemetry: { lat: 32.70, lon: 35.205 },
                 },
               ],
             },
@@ -61,8 +80,13 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
   return (
-    <div className="h-screen w-screen">
+    <div className="h-screen w-screen" style={{ position: "relative", height: "100vh", width: "100%" }}>
       <MapView data={data} />
+      <AttackPanel
+        squads={data?.attack_data?.squads}
+        onEngage={handleEngage}
+      />
+      <VideoPanel />
     </div>
   );
 }
