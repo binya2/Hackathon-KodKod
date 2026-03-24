@@ -15,9 +15,6 @@ export default function AttackPanel({ squads, onEngage }) {
                                 fontSize: "0.7rem",
                                 margin: 0
                             }}>id: {drone.drone_id}</p>
-                            {/* <p>Ammo: {drone.weapons_ready}</p>
-              <p>Status: {drone.status}</p> */}
-
                             <button style={{ width: "3rem", fontSize: "0.5rem", height: "1rem", background: "blue", border: 0, color: "white" }}
                                 onClick={() => {
                                     setSelectedDrone(drone)

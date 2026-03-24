@@ -18,8 +18,9 @@ L.Icon.Default.mergeOptions({
 
 export default function App() {
   const [data, setData] = useState(null);
-  const handleEngage = (droneId) => {
-    fetch("http://localhost:8000/engage", {
+  const [manualDrone, setManualDrone] = useState(null);
+  const handleEngage = async (droneId) => {
+    await fetch("http://localhost:8000/engage", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -31,7 +32,17 @@ export default function App() {
       }),
     });
   };
-
+  const handleResumeAuto = async (droneId) => {
+    await fetch("http://localhost:8000/resume_auto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "AUTO",
+        drone_id: droneId,
+      }),
+    });
+    setManualDrone(null); 
+  };
   // useEffect(() => {
   //   const ws = new WebSocket(WS_URL);
 
@@ -69,9 +80,9 @@ export default function App() {
                   telemetry: { lat: 31.705, lon: 35.205 },
                 },
                 {
-                  drone_id: "1",
+                  drone_id: "2",
                   telemetry: { lat: 31.703, lon: 35.205 },
-                  weapons_ready:2
+                  weapons_ready: 2
                 },
               ],
             },
@@ -83,7 +94,31 @@ export default function App() {
   }, []);
   return (
     <div className="h-screen w-screen" style={{ position: "relative", height: "100vh", width: "100%" }}>
-      <MapView data={data} />
+      {manualDrone && (
+  <button 
+    onClick={() => handleResumeAuto(manualDrone.drone_id)}
+    style={{
+      position: "absolute",
+      top: "20px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 1000,
+      backgroundColor: "#ff4d4d",
+      color: "white",
+      padding: "10px 20px",
+      borderRadius: "5px",
+      border: "none",
+      cursor: "pointer",
+      fontWeight: "bold"
+    }}
+  >AUTO
+  </button>
+)}
+      <MapView
+        data={data}
+        manualDrone={manualDrone}
+        setManualDrone={setManualDrone}
+      />
       <AttackPanel
         squads={data?.attack_data?.squads}
         onEngage={handleEngage}
