@@ -10,16 +10,6 @@ export default function ReconDrone({ data }) {
   return (
     <>
       <SmoothMarker position={position} icon={droneIcon}/>
-
-      <Circle
-        center={position}
-        radius={300} 
-        pathOptions={{
-          color: "red",
-          fillColor: "red",
-          fillOpacity: 0.2,
-        }}
-      />
     </>
   );
 }

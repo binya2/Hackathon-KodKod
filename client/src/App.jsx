@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import AttackPanel from "./componentas/attackPanel";
 import VideoPanel from "./componentas/videoPanel";
+import "./App.css"
 
 // const WS_URL = "ws://localhost:8000/ws";
 
@@ -69,14 +70,15 @@ export default function App() {
                 },
                 {
                   drone_id: "1",
-                  telemetry: { lat: 32.70, lon: 35.205 },
+                  telemetry: { lat: 31.703, lon: 35.205 },
+                  weapons_ready:2
                 },
               ],
             },
           ],
         },
       });
-    }, 1500);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
   return (
