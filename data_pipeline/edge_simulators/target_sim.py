@@ -1,19 +1,22 @@
 # %% Imports
 import argparse
 import json
+import math
+import os
 import random
 import time
-import os
-import math
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
-from pydantic import BaseModel
+from typing import Dict, Any
+
 from confluent_kafka import Producer, Consumer
+from pydantic import BaseModel
+
 
 # %% Data Contracts
 class GeoPoint(BaseModel):
     lat: float
     lon: float
+
 
 class TargetTelemetry(BaseModel):
     target_id: str
@@ -23,6 +26,7 @@ class TargetTelemetry(BaseModel):
     health: float = 100.0
     timestamp: str
 
+
 # %% State Management
 class TargetState:
     def __init__(self):
@@ -31,9 +35,11 @@ class TargetState:
         self.health: float = 100.0
         self.is_active: bool = False
 
+
 # %% Utils
 def iso8601_utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 # %% Kafka Logic
 def setup_kafka_clients(bootstrap_servers: str) -> tuple[Producer, Consumer]:
@@ -45,6 +51,7 @@ def setup_kafka_clients(bootstrap_servers: str) -> tuple[Producer, Consumer]:
     })
     consumer.subscribe(["events.payload_dropped", "events.intel"])
     return producer, consumer
+
 
 def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetState, producer: Producer):
     if topic == "events.payload_dropped":
@@ -60,7 +67,7 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
             if state.health <= 0:
                 print("💀 [DESTROYED] TGT-1 eliminated.")
                 state.health = 0
-    
+
     elif topic == "events.intel":
         if event_data.get("action") == "SPAWN_TARGET":
             state.base_lat = event_data.get("lat")
@@ -68,7 +75,7 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
             state.health = 100.0
             state.is_active = True
             print(f"🎯 [SPAWN] Target TGT-1 spawned at {state.base_lat}, {state.base_lon}")
-            
+
             # Zero-latency UI update: produce first telemetry immediately
             initial_telemetry = TargetTelemetry(
                 target_id="TGT-1",
@@ -80,6 +87,7 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
             )
             producer.produce("target.raw", key="TGT-1", value=initial_telemetry.model_dump_json())
             producer.poll(0)
+
 
 # %% Main Execution
 def main():
@@ -117,13 +125,14 @@ def main():
 
                 producer.produce("target.raw", key="TGT-1", value=telemetry.model_dump_json())
                 producer.poll(0)
-            
+
             time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
         producer.flush()
         consumer.close()
+
 
 if __name__ == "__main__":
     main()

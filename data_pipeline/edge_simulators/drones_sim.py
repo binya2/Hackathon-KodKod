@@ -1,25 +1,27 @@
 # %% Imports
 import argparse
 import json
+import math
+import os
 import random
 import time
-import os
-import math
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-from pydantic import BaseModel, Field
 from confluent_kafka import Producer, Consumer
+from pydantic import BaseModel
 
 # %% Configuration
 BASE_LAT = 31.800
 BASE_LON = 35.100
+
 
 # %% Data Contracts
 class GeoPoint(BaseModel):
     lat: float
     lon: float
     alt: float
+
 
 class DroneTelemetry(BaseModel):
     drone_id: str
@@ -32,9 +34,11 @@ class DroneTelemetry(BaseModel):
     assigned_target_id: Optional[str] = None
     timestamp: str
 
+
 # %% Utils
 def iso8601_utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 # %% Drone Logic
 class Drone:
@@ -73,25 +77,32 @@ class Drone:
         # Simple movement towards target
         step = 0.0001 * dt
         if abs(self.lat - self.target_lat) > step:
-            if self.lat < self.target_lat: self.lat += step
-            else: self.lat -= step
-        
+            if self.lat < self.target_lat:
+                self.lat += step
+            else:
+                self.lat -= step
+
         if abs(self.lon - self.target_lon) > step:
-            if self.lon < self.target_lon: self.lon += step
-            else: self.lon -= step
-        
+            if self.lon < self.target_lon:
+                self.lon += step
+            else:
+                self.lon -= step
+
         if abs(self.alt - self.target_alt) > step * 10:
-            if self.alt < self.target_alt: self.alt += step * 10
-            else: self.alt -= step * 10
+            if self.alt < self.target_alt:
+                self.alt += step * 10
+            else:
+                self.alt -= step * 10
 
         self.battery -= battery_drain_per_sec * dt
-        if self.battery < 0: self.battery = 0
-        
+        if self.battery < 0:
+            self.battery = 0
+
         self.heading = (self.heading + random.uniform(-5, 5)) % 360
 
         # RTB check
         if self.flight_status == "RETURNING":
-            dist = math.sqrt((self.lat - BASE_LAT)**2 + (self.lon - BASE_LON)**2)
+            dist = math.sqrt((self.lat - BASE_LAT) ** 2 + (self.lon - BASE_LON) ** 2)
             if dist < 0.005:
                 print(f"[SIM] {self.drone_id} arrived at base. Sleeping.")
                 self.flight_status = "SLEEP"
@@ -112,6 +123,7 @@ class Drone:
             timestamp=iso8601_utc_now()
         )
 
+
 # %% Kafka Logic
 def setup_kafka_clients(bootstrap_servers: str) -> tuple[Producer, Consumer]:
     producer = Producer({"bootstrap.servers": bootstrap_servers})
@@ -122,6 +134,7 @@ def setup_kafka_clients(bootstrap_servers: str) -> tuple[Producer, Consumer]:
     })
     consumer.subscribe(["commands.drones", "commands.attack"])
     return producer, consumer
+
 
 def process_drone_command(cmd_data: Dict[str, Any], topic: str, drones: List[Drone], producer: Producer):
     d_id = cmd_data.get("drone_id")
@@ -146,7 +159,7 @@ def process_drone_command(cmd_data: Dict[str, Any], topic: str, drones: List[Dro
                 else:
                     pos = cmd_data.get("position", {})
                     d.update_waypoint(pos.get("lat", d.lat), pos.get("lon", d.lon), pos.get("alt", d.alt))
-            
+
             elif topic == "commands.attack":
                 if cmd_data.get("action") == "EXECUTE_STRIKE" and d.weapons_count > 0:
                     d.weapons_count -= 1
@@ -161,11 +174,13 @@ def process_drone_command(cmd_data: Dict[str, Any], topic: str, drones: List[Dro
                     producer.produce("events.payload_dropped", key=d.drone_id, value=json.dumps(event))
                     print(f"!!! [ATTACK] {d.drone_id} executed strike on {cmd_data.get('target_id')}")
 
+
 # %% Main Execution
 def main():
     parser = argparse.ArgumentParser(description="Drone Swarm Simulator")
     parser.add_argument("--num-drones", type=int, default=20)
-    parser.add_argument("--kafka-bootstrap", type=str, default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
+    parser.add_argument("--kafka-bootstrap", type=str,
+                        default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
     args = parser.parse_args()
 
     producer, consumer = setup_kafka_clients(args.kafka_bootstrap)
@@ -173,7 +188,7 @@ def main():
     drones = []
     for i in range(args.num_drones):
         role = "recon" if i < 5 else "attack"
-        drones.append(Drone(f"DRN-{i+1}", role, BASE_LAT, BASE_LON, 0.0, "SLEEP"))
+        drones.append(Drone(f"DRN-{i + 1}", role, BASE_LAT, BASE_LON, 0.0, "SLEEP"))
 
     print(f"[SIM] Running {len(drones)} drones. Connecting to {args.kafka_bootstrap}")
 
@@ -190,7 +205,7 @@ def main():
                 d.tick(0.1, 0.05)
                 telemetry = d.to_telemetry()
                 producer.produce("telemetry.raw", key=d.drone_id, value=telemetry.model_dump_json())
-            
+
             producer.poll(0)
             time.sleep(0.1)
     except KeyboardInterrupt:
@@ -198,6 +213,7 @@ def main():
     finally:
         producer.flush()
         consumer.close()
+
 
 if __name__ == "__main__":
     main()
