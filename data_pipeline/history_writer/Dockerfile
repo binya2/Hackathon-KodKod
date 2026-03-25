@@ -10,12 +10,13 @@ ENV SSL_CERT_FILE=/etc/ca-bundle.crt
 
 WORKDIR /app
 
-# Setup working directory for the microservice
-WORKDIR /app/history_writer
+ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-COPY history_writer/requirements.txt .
-RUN pip install -r requirements.txt
+COPY ./history_writer/requirements.txt /app/requirements.txt
+RUN pip install -r /app/requirements.txt
 
-COPY history_writer/ .
+COPY . /app/data_pipeline
+
+WORKDIR /app/data_pipeline/history_writer
 
 CMD ["python", "main.py"]

@@ -10,13 +10,12 @@ from typing import Optional, List, Dict, Any
 
 from confluent_kafka import Producer, Consumer
 
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared_models import DroneTelemetry, GeoPoint
+from data_pipeline.shared_models import DroneTelemetry, GeoPoint
 
 # %% Configuration
 BASE_LAT = 31.800
 BASE_LON = 35.100
+
 
 # %% Utils
 def iso8601_utc_now() -> str:

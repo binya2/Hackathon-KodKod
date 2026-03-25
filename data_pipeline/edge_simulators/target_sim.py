@@ -9,10 +9,9 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from confluent_kafka import Producer, Consumer
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from shared_models import GeoPoint, TargetTelemetry, TargetType
+from data_pipeline.shared_models import GeoPoint, TargetTelemetry, TargetType
+
 
 # %% State Management
 class TargetState:

@@ -32,7 +32,7 @@ class GeoPoint(BaseModel):
 class DroneTelemetry(BaseModel):
     drone_id: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    role: str  # Keep as str for edge cases, but validated below where needed
+    role: str
     position: GeoPoint
     velocity: float
     heading: float

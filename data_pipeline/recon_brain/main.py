@@ -8,7 +8,7 @@ from typing import AsyncIterable
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
+from data_pipeline.shared_models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
 
 # %% Configuration & Logging
 logging.basicConfig(level=logging.INFO)
@@ -52,7 +52,7 @@ async def process_target_stream(consumer: AsyncIterable, producer):
                     ),
                     priority=2
                 )
-                
+
                 # Make sure payload is JSON encoded properly
                 await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
 

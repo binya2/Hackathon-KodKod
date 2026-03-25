@@ -1,15 +1,47 @@
+import contextlib
 import json
 import uuid
-import contextlib
 
 import httpx
 from fastapi import FastAPI, HTTPException
 
 from kafka_client import producer, delivery_report, log_to_kafka, iso8601_utc_now
-from models import (
-    EngageRequest, DeployRequest, NewTargetRequest,
-    RecallRequest, ManualMoveRequest, ResumeAutoRequest
-)
+
+# Re-create Pydantic Models for requests just for the API
+from pydantic import BaseModel
+from typing import Optional
+
+
+class RecallRequest(BaseModel):
+    drone_id: str
+
+
+class ManualMoveRequest(BaseModel):
+    drone_id: str
+    lat: float
+    lon: float
+    alt: float
+
+
+class ResumeAutoRequest(BaseModel):
+    drone_id: str
+
+
+class EngageRequest(BaseModel):
+    action: str
+    target_id: str
+    drone_id: str
+
+
+class DeployRequest(BaseModel):
+    role: str  # recon or attack
+    target_id: Optional[str] = "TGT-1"
+
+
+class NewTargetRequest(BaseModel):
+    lat: float
+    lon: float
+
 
 # --- App Initialization ---
 @contextlib.asynccontextmanager
@@ -18,6 +50,7 @@ async def lifespan(app: FastAPI):
     # Shutdown logic
     print("Flushing Kafka producer on shutdown...")
     producer.flush()
+
 
 app = FastAPI(title="Attack Commander Service", lifespan=lifespan)
 

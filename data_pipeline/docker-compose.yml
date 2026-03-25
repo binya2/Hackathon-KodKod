@@ -33,8 +33,8 @@ services:
 
   state_aggregator:
     build: 
-      context: .
-      dockerfile: ./state_aggregator/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/state_aggregator/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -45,8 +45,8 @@ services:
 
   recon_brain:
     build: 
-      context: .
-      dockerfile: ./recon_brain/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/recon_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -55,8 +55,8 @@ services:
 
   attack_brain:
     build: 
-      context: .
-      dockerfile: ./attack_brain/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/attack_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -65,8 +65,8 @@ services:
 
   drone_sim:
     build: 
-      context: .
-      dockerfile: ./edge_simulators/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/edge_simulators/Dockerfile
     command: python drones_sim.py --kafka-bootstrap kafka:29092 --num-drones 5
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -76,8 +76,8 @@ services:
 
   target_sim:
     build: 
-      context: .
-      dockerfile: ./edge_simulators/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/edge_simulators/Dockerfile
     command: python target_sim.py --kafka-bootstrap kafka:29092
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -87,8 +87,8 @@ services:
 
   attack_commander:
     build: 
-      context: .
-      dockerfile: ./attack_commander/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/attack_commander/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -97,8 +97,8 @@ services:
 
   log_aggregator:
     build: 
-      context: .
-      dockerfile: ./log_aggregator/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/log_aggregator/Dockerfile
     depends_on:
       kafka:
         condition: service_healthy
@@ -107,8 +107,8 @@ services:
 
   history_archive_service:
     build: 
-      context: .
-      dockerfile: ./history_writer/Dockerfile
+      context: ..
+      dockerfile: ./data_pipeline/history_writer/Dockerfile
     depends_on:
       mongo:
         condition: service_started

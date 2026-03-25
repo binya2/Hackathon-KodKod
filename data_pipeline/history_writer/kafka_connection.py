@@ -1,7 +1,7 @@
-import json
 import os
 
 from confluent_kafka import Consumer
+
 
 def create_consumer():
     broker = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")

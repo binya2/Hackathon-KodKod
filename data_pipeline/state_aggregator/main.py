@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole, GeoPoint, TargetType
+from data_pipeline.shared_models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole, GeoPoint, TargetType
 
 # %% Global State Setup
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +24,7 @@ _targets_registry = {}
 
 async def kafka_consumer_task():
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-    
+
     # We remove value_deserializer because msg.value will be bytes. We handle it explicitly.
     consumer = AIOKafkaConsumer(
         "telemetry.raw", "target.raw",
@@ -37,14 +37,14 @@ async def kafka_consumer_task():
         async for msg in consumer:
             if not msg.value:
                 continue
-                
+
             try:
                 # Standardized JSON decoding
                 raw_data = json.loads(msg.value.decode("utf-8"))
             except Exception as e:
                 logger.error(f"Error decoding JSON message: {e}")
                 continue
-                
+
             if msg.topic == "telemetry.raw":
                 try:
                     tel = DroneTelemetry(**raw_data)

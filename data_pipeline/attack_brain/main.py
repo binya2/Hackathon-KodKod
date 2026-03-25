@@ -8,7 +8,7 @@ from typing import AsyncIterable
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from models import TargetTelemetry, DroneTelemetry, DroneCommand, GeoPoint
+from data_pipeline.shared_models import TargetTelemetry, DroneTelemetry, GeoPoint, DroneCommand
 
 # %% Setup Logging
 logging.basicConfig(level=logging.INFO)
