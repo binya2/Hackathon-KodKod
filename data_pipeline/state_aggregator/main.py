@@ -41,26 +41,39 @@ async def kafka_consumer_task():
             try:
                 # Standardized JSON decoding
                 raw_data = json.loads(msg.value.decode("utf-8"))
-            except Exception as e:
-                logger.error(f"Error decoding JSON message: {e}")
+            except Exception:
+                logger.exception("Error decoding JSON message")
                 continue
 
             if msg.topic == "telemetry.raw":
                 try:
                     tel = DroneTelemetry.model_validate(raw_data)
                     _drones_registry[tel.drone_id] = tel
-                except Exception as e:
-                    logger.error(f"Error parsing telemetry: {e}")
+                except Exception:
+                    logger.exception("Error parsing telemetry")
 
             elif msg.topic == "target.raw":
                 try:
                     tgt = TargetTelemetry.model_validate(raw_data)
                     _targets_registry[tgt.target_id] = tgt
-                except Exception as e:
-                    logger.error(f"Error parsing target: {e}")
+                except Exception:
+                    logger.exception("Error parsing target")
+
+            # --- Garbage Collection (Zombie Drones) ---
+            now = datetime.now(timezone.utc)
+            stale_drones = []
+            for d_id, drone in _drones_registry.items():
+                # Remove drones that haven't sent telemetry in the last 5 seconds
+                if (now - drone.timestamp).total_seconds() > 5.0:
+                    stale_drones.append(d_id)
+
+            for d_id in stale_drones:
+                logger.warning(f"Removing stale drone {d_id} from state (no telemetry for >5s)")
+                del _drones_registry[d_id]
+            # ------------------------------------------
 
             # Update global state snapshot
-            _global_state.timestamp = datetime.now(timezone.utc)
+            _global_state.timestamp = now
 
             # Recon data sorted: ACTIVE first
             _global_state.recon_data = sorted(
@@ -131,8 +144,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected.")
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+    except Exception:
+        logger.exception("WebSocket error")
 
 
 # %% Mock Data Generation Cell
