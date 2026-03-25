@@ -9,23 +9,10 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from confluent_kafka import Producer, Consumer
-from pydantic import BaseModel
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
-# %% Data Contracts
-class GeoPoint(BaseModel):
-    lat: float
-    lon: float
-
-
-class TargetTelemetry(BaseModel):
-    target_id: str
-    target_type: str = "vehicle"
-    position: GeoPoint
-    confidence: float
-    health: float = 100.0
-    timestamp: str
-
+from shared_models import GeoPoint, TargetTelemetry, TargetType
 
 # %% State Management
 class TargetState:
@@ -79,11 +66,10 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
             # Zero-latency UI update: produce first telemetry immediately
             initial_telemetry = TargetTelemetry(
                 target_id="TGT-1",
-                target_type="vehicle",
+                target_type=TargetType.VEHICLE.value,
                 position=GeoPoint(lat=state.base_lat, lon=state.base_lon),
                 confidence=0.95,
-                health=state.health,
-                timestamp=iso8601_utc_now()
+                health=state.health
             )
             producer.produce("target.raw", key="TGT-1", value=initial_telemetry.model_dump_json())
             producer.poll(0)
@@ -116,11 +102,10 @@ def main():
 
                 telemetry = TargetTelemetry(
                     target_id="TGT-1",
-                    target_type="vehicle",
+                    target_type=TargetType.VEHICLE.value,
                     position=GeoPoint(lat=lat, lon=lon),
                     confidence=0.95 if state.health > 0 else 0.0,
-                    health=state.health,
-                    timestamp=iso8601_utc_now()
+                    health=state.health
                 )
 
                 producer.produce("target.raw", key="TGT-1", value=telemetry.model_dump_json())

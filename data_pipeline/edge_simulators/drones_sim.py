@@ -9,31 +9,14 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
 from confluent_kafka import Producer, Consumer
-from pydantic import BaseModel
+
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from shared_models import DroneTelemetry, GeoPoint
 
 # %% Configuration
 BASE_LAT = 31.800
 BASE_LON = 35.100
-
-
-# %% Data Contracts
-class GeoPoint(BaseModel):
-    lat: float
-    lon: float
-    alt: float
-
-
-class DroneTelemetry(BaseModel):
-    drone_id: str
-    role: str
-    position: GeoPoint
-    velocity: float
-    heading: float
-    battery_percent: float
-    flight_status: str
-    assigned_target_id: Optional[str] = None
-    timestamp: str
-
 
 # %% Utils
 def iso8601_utc_now() -> str:
@@ -111,6 +94,7 @@ class Drone:
                 self.target_alt = 0.0
 
     def to_telemetry(self) -> DroneTelemetry:
+        # Note: shared_models handles the timezone in DroneTelemetry
         return DroneTelemetry(
             drone_id=self.drone_id,
             role=self.role,
@@ -119,8 +103,7 @@ class Drone:
             heading=self.heading,
             battery_percent=round(self.battery, 1),
             flight_status=self.flight_status,
-            assigned_target_id=self.assigned_target_id,
-            timestamp=iso8601_utc_now()
+            assigned_target_id=self.assigned_target_id
         )
 
 
