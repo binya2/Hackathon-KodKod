@@ -6,15 +6,14 @@ import time
 import os
 import math
 from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 from confluent_kafka import Producer, Consumer
-
 
 # %% Data Contracts
 class GeoPoint(BaseModel):
     lat: float
     lon: float
-
 
 class TargetTelemetry(BaseModel):
     target_id: str
@@ -24,11 +23,63 @@ class TargetTelemetry(BaseModel):
     health: float = 100.0
     timestamp: str
 
+# %% State Management
+class TargetState:
+    def __init__(self):
+        self.base_lat: float = 31.705
+        self.base_lon: float = 35.205
+        self.health: float = 100.0
+        self.is_active: bool = False
 
 # %% Utils
 def iso8601_utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+# %% Kafka Logic
+def setup_kafka_clients(bootstrap_servers: str) -> tuple[Producer, Consumer]:
+    producer = Producer({"bootstrap.servers": bootstrap_servers})
+    consumer = Consumer({
+        "bootstrap.servers": bootstrap_servers,
+        "group.id": f"target-sim-{random.randint(0, 1000)}",
+        "auto.offset.reset": "latest"
+    })
+    consumer.subscribe(["events.payload_dropped", "events.intel"])
+    return producer, consumer
+
+def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetState, producer: Producer):
+    if topic == "events.payload_dropped":
+        if not state.is_active:
+            return
+        d_lat = event_data.get("lat")
+        d_lon = event_data.get("lon")
+        # Euclidean distance check
+        dist = math.sqrt((state.base_lat - d_lat) ** 2 + (state.base_lon - d_lon) ** 2)
+        if dist < 0.001:  # ~100m
+            state.health -= 25.0
+            print(f"💥 [HIT] Target TGT-1 hit by {event_data.get('drone_id')}! Health: {state.health}")
+            if state.health <= 0:
+                print("💀 [DESTROYED] TGT-1 eliminated.")
+                state.health = 0
+    
+    elif topic == "events.intel":
+        if event_data.get("action") == "SPAWN_TARGET":
+            state.base_lat = event_data.get("lat")
+            state.base_lon = event_data.get("lon")
+            state.health = 100.0
+            state.is_active = True
+            print(f"🎯 [SPAWN] Target TGT-1 spawned at {state.base_lat}, {state.base_lon}")
+            
+            # Zero-latency UI update: produce first telemetry immediately
+            initial_telemetry = TargetTelemetry(
+                target_id="TGT-1",
+                target_type="vehicle",
+                position=GeoPoint(lat=state.base_lat, lon=state.base_lon),
+                confidence=0.95,
+                health=state.health,
+                timestamp=iso8601_utc_now()
+            )
+            producer.produce("target.raw", key="TGT-1", value=initial_telemetry.model_dump_json())
+            producer.poll(0)
 
 # %% Main Execution
 def main():
@@ -37,18 +88,8 @@ def main():
                         default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
     args = parser.parse_args()
 
-    producer = Producer({"bootstrap.servers": args.kafka_bootstrap})
-    consumer = Consumer({
-        "bootstrap.servers": args.kafka_bootstrap,
-        "group.id": f"target-sim-{random.randint(0, 1000)}",
-        "auto.offset.reset": "latest"
-    })
-    consumer.subscribe(["events.payload_dropped", "events.intel"])
-
-    # State
-    base_lat, base_lon = 31.705, 35.205
-    health = 100.0
-    is_active = False
+    producer, consumer = setup_kafka_clients(args.kafka_bootstrap)
+    state = TargetState()
 
     print(f"[TARGET] Simulating Target TGT-1. Connecting to {args.kafka_bootstrap}")
 
@@ -57,53 +98,20 @@ def main():
             # 1. Check for hits or spawn events
             msg = consumer.poll(0.01)
             if msg and not msg.error():
-                event = json.loads(msg.value().decode("utf-8"))
-                
-                if msg.topic() == "events.payload_dropped":
-                    if not is_active:
-                        continue
-                    d_lat = event.get("lat")
-                    d_lon = event.get("lon")
-                    # Euclidean distance check
-                    dist = math.sqrt((base_lat - d_lat) ** 2 + (base_lon - d_lon) ** 2)
-                    if dist < 0.001:  # ~100m
-                        health -= 25.0
-                        print(f"💥 [HIT] Target TGT-1 hit by {event.get('drone_id')}! Health: {health}")
-                        if health <= 0:
-                            print("💀 [DESTROYED] TGT-1 eliminated.")
-                            health = 0
-                
-                elif msg.topic() == "events.intel":
-                    if event.get("action") == "SPAWN_TARGET":
-                        base_lat = event.get("lat")
-                        base_lon = event.get("lon")
-                        health = 100.0
-                        is_active = True
-                        print(f"🎯 [SPAWN] Target TGT-1 spawned at {base_lat}, {base_lon}")
-                        
-                        # Zero-latency UI update: produce first telemetry immediately
-                        initial_telemetry = TargetTelemetry(
-                            target_id="TGT-1",
-                            target_type="vehicle",
-                            position=GeoPoint(lat=base_lat, lon=base_lon),
-                            confidence=0.95,
-                            health=health,
-                            timestamp=iso8601_utc_now()
-                        )
-                        producer.produce("target.raw", key="TGT-1", value=initial_telemetry.model_dump_json())
-                        producer.poll(0)
+                event_data = json.loads(msg.value().decode("utf-8"))
+                process_target_event(event_data, msg.topic(), state, producer)
 
             # 2. Produce telemetry only if active
-            if is_active:
-                lat = base_lat + random.uniform(-0.0001, 0.0001)
-                lon = base_lon + random.uniform(-0.0001, 0.0001)
+            if state.is_active:
+                lat = state.base_lat + random.uniform(-0.0001, 0.0001)
+                lon = state.base_lon + random.uniform(-0.0001, 0.0001)
 
                 telemetry = TargetTelemetry(
                     target_id="TGT-1",
                     target_type="vehicle",
                     position=GeoPoint(lat=lat, lon=lon),
-                    confidence=0.95 if health > 0 else 0.0,
-                    health=health,
+                    confidence=0.95 if state.health > 0 else 0.0,
+                    health=state.health,
                     timestamp=iso8601_utc_now()
                 )
 
@@ -116,7 +124,6 @@ def main():
     finally:
         producer.flush()
         consumer.close()
-
 
 if __name__ == "__main__":
     main()
