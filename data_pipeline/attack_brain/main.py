@@ -1,0 +1,140 @@
+# %% Imports
+import asyncio
+import json
+import os
+import logging
+import uuid
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from models import TargetTelemetry, DroneTelemetry, DroneCommand, GeoPoint
+
+# %% Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("attack-brain")
+
+# %% Deployment Environment Detection
+# Detect if running in Kubernetes to adjust scaling behavior
+RUNNING_IN_K8S = os.environ.get("K8S_DEPLOYMENT", "false").lower() == "true"
+
+# %% Global State
+targets = {}
+drones_registry = {}  # drone_id -> DroneTelemetry
+
+
+# %% Logic Loop
+async def process_target_stream(consumer):
+    async for msg in consumer:
+        try:
+            raw_data = json.loads(msg.value.decode("utf-8"))
+            target = TargetTelemetry.model_validate(raw_data)
+            targets[target.target_id] = target
+        except Exception as e:
+            logger.error(f"[ERROR] Parsing target: {e}")
+
+
+async def process_telemetry_stream(consumer):
+    async for msg in consumer:
+        try:
+            raw_data = json.loads(msg.value.decode("utf-8"))
+            telemetry = DroneTelemetry.model_validate(raw_data)
+            drones_registry[telemetry.drone_id] = telemetry
+        except Exception as e:
+            logger.error(f"[ERROR] Parsing telemetry: {e}")
+
+
+async def process_deployment_stream(consumer, producer):
+    async for msg in consumer:
+        try:
+            raw_data = json.loads(msg.value.decode("utf-8"))
+            role = raw_data.get("role")
+            if role != "attack":
+                continue
+
+            active_attack_drones = [d for d in drones_registry.values() if
+                                    d.role == "attack" and d.flight_status == "ACTIVE"]
+
+            if len(active_attack_drones) < 5:
+                # Warm Pool: Find and wake a sleeping drone
+                sleeping_drones = [d for d in drones_registry.values() if
+                                   d.role == "attack" and d.flight_status == "SLEEP"]
+                if sleeping_drones:
+                    target_drone = sleeping_drones[0]
+                    wake_cmd = {"drone_id": target_drone.drone_id, "action": "WAKE_UP"}
+                    await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
+                    logger.info(f"[DEPLOY] Waking up {target_drone.drone_id}")
+                else:
+                    logger.warn("[DEPLOY] No sleeping attack drones available.")
+            else:
+                # Capacity reached: Handle based on environment
+                if not RUNNING_IN_K8S:
+                    # Docker Compose: Manual scaling by re-producing to Kafka
+                    logger.info("[DEPLOY] Capacity full (5). Re-producing for other replicas.")
+                    new_key = str(uuid.uuid4()).encode("utf-8")
+                    await producer.send_and_wait("commands.deployment", msg.value, key=new_key)
+                else:
+                    # Kubernetes: Rely on HPA and do NOT re-produce to avoid loops
+                    logger.info("[K8S SCALE] Capacity full. Relying on K8S HPA to scale pods...")
+
+        except Exception as e:
+            logger.error(f"[ERROR] Parsing deployment: {e}")
+
+
+async def assignment_loop(producer):
+    alt_separation = 20.0
+    while True:
+        active_attack_drones = [d for d in drones_registry.values() if
+                                d.role == "attack" and d.flight_status == "ACTIVE"]
+
+        if targets and active_attack_drones:
+            target_id, target = next(iter(targets.items()))
+
+            for i, drone in enumerate(active_attack_drones):
+                offset_lat = 0.0005 * (i % 2 if i % 2 != 0 else -1)
+                offset_lon = 0.0005 * (1 if i > 1 else -1)
+
+                target_pos = target.position
+                waypoint = GeoPoint(
+                    lat=target_pos.lat + offset_lat,
+                    lon=target_pos.lon + offset_lon,
+                    alt=150.0 + (i * alt_separation)
+                )
+
+                cmd = DroneCommand(drone_id=drone.drone_id, position=waypoint)
+                await producer.send_and_wait("commands.drones", cmd.model_dump_json().encode("utf-8"))
+
+        await asyncio.sleep(2.0)
+
+
+# %% Main Execution
+async def main():
+    bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    logger.info(f"[SYSTEM] Connecting to Kafka at {bootstrap}")
+
+    target_consumer = AIOKafkaConsumer("target.raw", bootstrap_servers=bootstrap, group_id="attack-brain-target")
+    telemetry_consumer = AIOKafkaConsumer("telemetry.raw", bootstrap_servers=bootstrap,
+                                          group_id="attack-brain-telemetry")
+    deploy_consumer = AIOKafkaConsumer("commands.deployment", bootstrap_servers=bootstrap, group_id="attack_deploy")
+    producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
+
+    await target_consumer.start()
+    await telemetry_consumer.start()
+    await deploy_consumer.start()
+    await producer.start()
+
+    logger.info("[SYSTEM] Attack Brain Microservice Started.")
+
+    try:
+        await asyncio.gather(
+            process_target_stream(target_consumer),
+            process_telemetry_stream(telemetry_consumer),
+            process_deployment_stream(deploy_consumer, producer),
+            assignment_loop(producer)
+        )
+    finally:
+        await target_consumer.stop()
+        await telemetry_consumer.stop()
+        await deploy_consumer.stop()
+        await producer.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
