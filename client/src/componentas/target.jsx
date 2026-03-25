@@ -3,14 +3,22 @@ import SmoothMarker from "./smoothMarker";
 import { droneIconTarget } from "../icons/target";
 
 export default function Target({ data }) {
+  // console.log(data);
   if (!data) return null;
   return (
     <>
-      <SmoothMarker position={[data.location.lat, data.location.lon]} icon={droneIconTarget}/>
+    {data.map((target)=>{
 
-      {data.predicted_polygon && (
-        <Polygon positions={data.predicted_polygon} target={droneIconTarget}/>
-      )}
+      return(
+      <div key={target.target_id}>
+        <SmoothMarker position={[target.position.lat, target.position.lon]} icon={droneIconTarget}/>
+        {target.predicted_polygon && (
+          <Polygon positions={target.predicted_polygon} target={droneIconTarget}/>
+        )}
+        </div>
+      )
+
+    })}
     </>
   );
 }
