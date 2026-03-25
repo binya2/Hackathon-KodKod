@@ -1,10 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Copy shared models
+COPY shared_models.py /app/
+
+# Setup working directory for the microservice
+WORKDIR /app/recon_brain
+
+COPY recon_brain/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY recon_brain/ .
 
 CMD ["python", "main.py"]

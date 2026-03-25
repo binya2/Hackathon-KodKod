@@ -32,7 +32,9 @@ services:
       - "27017:27017"
 
   state_aggregator:
-    build: ./state_aggregator
+    build: 
+      context: .
+      dockerfile: ./state_aggregator/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -42,7 +44,9 @@ services:
         condition: service_healthy
 
   recon_brain:
-    build: ./recon_brain
+    build: 
+      context: .
+      dockerfile: ./recon_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -50,7 +54,9 @@ services:
         condition: service_healthy
 
   attack_brain:
-    build: ./attack_brain
+    build: 
+      context: .
+      dockerfile: ./attack_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -58,7 +64,9 @@ services:
         condition: service_healthy
 
   drone_sim:
-    build: ./edge_simulators
+    build: 
+      context: .
+      dockerfile: ./edge_simulators/Dockerfile
     command: python drones_sim.py --kafka-bootstrap kafka:29092 --num-drones 5
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -67,7 +75,9 @@ services:
         condition: service_healthy
 
   target_sim:
-    build: ./edge_simulators
+    build: 
+      context: .
+      dockerfile: ./edge_simulators/Dockerfile
     command: python target_sim.py --kafka-bootstrap kafka:29092
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
@@ -76,7 +86,9 @@ services:
         condition: service_healthy
 
   attack_commander:
-    build: ./attack_commander
+    build: 
+      context: .
+      dockerfile: ./attack_commander/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -84,17 +96,24 @@ services:
         condition: service_healthy
 
   log_aggregator:
-    build: ./log_aggregator
+    build: 
+      context: .
+      dockerfile: ./log_aggregator/Dockerfile
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
 
   history_archive_service:
-    build: ./history_writer
+    build: 
+      context: .
+      dockerfile: ./history_writer/Dockerfile
     depends_on:
-      - mongo
-      - kafka
+      mongo:
+        condition: service_started
+      kafka:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://mongo:27017
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
