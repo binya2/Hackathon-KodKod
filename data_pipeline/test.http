@@ -5,9 +5,9 @@
 # ==========================================
 # 1. שכבת הנתונים (State Aggregator)
 # ==========================================
-### קבלת תמונת מצב עולמית (World State)
-# נקודה זו משמשת את צוות הפולסטאק למשיכת הנתונים המעובדים של כלל הרכיבים.
-# מחזירה JSON הכולל את מיקומי כל הרחפנים (תצפית ותקיפה), סטטוס טיסה, ומיקומים של מטרות.
+### קבלת תמונת מצב עולמית (World State) - משיכה בודדת
+# הערה לפולסטאק: לזרימת נתונים חלקה (10Hz),
+# יש להתחבר ל-WebSocket בכתובת: ws://localhost:8000/ws
 GET {{aggregator_url}}/api/state
 Accept: application/json
 
@@ -16,10 +16,6 @@ Accept: application/json
 # 2. ניהול אירועים ומטרות (Target Control)
 # ==========================================
 ### יצירת מטרה חדשה והזנקה אוטומטית (Auto-Scramble)
-# זוהי נקודת ההתנעה של האירוע.
-# שליחת נ"צ לנקודה זו תגרום ל:
-# א. הופעת מטרה בסימולטור המטרה במיקום שנבחר.
-# ב. הזנקה אוטומטית של רחפן תצפית (Recon) ראשון מהבסיס לכיוון המטרה.
 POST {{commander_url}}/new_target
 Content-Type: application/json
 
@@ -28,26 +24,59 @@ Content-Type: application/json
     "lon": 35.250
 }
 
+
 ### ==========================================
-# 3. ניהול כוחות ורחפנים (Deployment)
+# 3. ניהול כוחות ורחפנים (Deployment & RTB)
 # ==========================================
-### הזנקת רחפן נוסף מהבסיס (Manual Deploy)
-# מאפשר לחייל להוסיף כוח אש או תצפית נוספת מעבר להזנקה האוטומטית.
-# המערכת תבחר רחפן במצב "שינה" (SLEEP) ותעביר אותו למצב "פעיל" (ACTIVE).
-# role: "recon" או "attack"
+### הזנקת רחפן מהבסיס (Manual Deploy)
+# חובה לספק target_id כדי שהמוח ידע לאן לשייך אותו
 POST {{commander_url}}/deploy_drone
 Content-Type: application/json
 
 {
-    "role": "attack"
+    "role": "attack",
+    "target_id": "TGT-1"
 }
 
+### החזרת רחפן לבסיס (Recall / Return to Base)
+# הרחפן יעבור לסטטוס RETURNING ויטוס חזרה לנ"צ של הבסיס
+POST {{commander_url}}/recall_drone
+Content-Type: application/json
+
+{
+    "drone_id": "DRN-1"
+}
+
+
 ### ==========================================
-# 4. ביצוע תקיפה (Strike Execution)
+# 4. עקיפה ושליטה ידנית (Manual Override)
+# ==========================================
+### שליחת רחפן לנ"צ ידני (Manual Move)
+# מנתק את הרחפן מהמוח האוטומטי ומעביר אותו לסטטוס MANUAL
+POST {{commander_url}}/manual_move
+Content-Type: application/json
+
+{
+    "drone_id": "DRN-1",
+    "lat": 31.755,
+    "lon": 35.255,
+    "alt": 150.0
+}
+
+### החזרת רחפן למצב אוטונומי (Resume Auto)
+# מחזיר את הרחפן לסטטוס ACTIVE כדי שהמוח יחזור לנהל אותו
+POST {{commander_url}}/resume_auto
+Content-Type: application/json
+
+{
+    "drone_id": "DRN-1"
+}
+
+
+### ==========================================
+# 5. ביצוע תקיפה (Strike Execution)
 # ==========================================
 ### אישור אש ותקיפת מטרה (Engage)
-# הפקודה הקריטית ביותר. החייל בוחר רחפן ספציפי ומאשר לו לתקוף מטרה ספציפית.
-# גורם לרחפן להוריד תחמושת, להטיל פצצה ולסימולטור המטרה לחשב נזק (BDA).
 POST {{commander_url}}/engage
 Content-Type: application/json
 
@@ -57,8 +86,8 @@ Content-Type: application/json
     "drone_id": "DRN-6"
 }
 
+
 ### ==========================================
-# 5. בריאות המערכת (Health Checks)
+# 6. בדיקות תקינות (Health Check)
 # ==========================================
-### בדיקת סטטוס שרת הקומנדר
 GET {{commander_url}}/health
