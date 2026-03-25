@@ -21,6 +21,7 @@ class TargetTelemetry(BaseModel):
     target_type: str = "vehicle"
     position: GeoPoint
     confidence: float
+    health: float = 100.0
     timestamp: str
 
 
@@ -79,6 +80,18 @@ def main():
                         health = 100.0
                         is_active = True
                         print(f"🎯 [SPAWN] Target TGT-1 spawned at {base_lat}, {base_lon}")
+                        
+                        # Zero-latency UI update: produce first telemetry immediately
+                        initial_telemetry = TargetTelemetry(
+                            target_id="TGT-1",
+                            target_type="vehicle",
+                            position=GeoPoint(lat=base_lat, lon=base_lon),
+                            confidence=0.95,
+                            health=health,
+                            timestamp=iso8601_utc_now()
+                        )
+                        producer.produce("target.raw", key="TGT-1", value=initial_telemetry.model_dump_json())
+                        producer.poll(0)
 
             # 2. Produce telemetry only if active
             if is_active:
@@ -90,6 +103,7 @@ def main():
                     target_type="vehicle",
                     position=GeoPoint(lat=lat, lon=lon),
                     confidence=0.95 if health > 0 else 0.0,
+                    health=health,
                     timestamp=iso8601_utc_now()
                 )
 

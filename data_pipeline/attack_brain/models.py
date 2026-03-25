@@ -26,6 +26,7 @@ class TargetTelemetry(BaseModel):
     target_type: str
     position: GeoPoint
     confidence: float
+    health: float = 100.0
 
 class DroneCommand(BaseModel):
     drone_id: str

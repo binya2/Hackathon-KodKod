@@ -24,6 +24,7 @@ class TargetTelemetry(BaseModel):
     target_type: TargetType
     position: GeoPoint
     confidence: float
+    health: float = 100.0
 
 
 class NavigationCommand(BaseModel):

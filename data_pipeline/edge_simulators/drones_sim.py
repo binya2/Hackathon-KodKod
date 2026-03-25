@@ -116,7 +116,7 @@ def main():
         status = "SLEEP"
         initial_alt = 0.0
             
-        drones.append(Drone(f"DRN-{i+1}", role, 31.7, 35.2, initial_alt, status))
+        drones.append(Drone(f"DRN-{i+1}", role, BASE_LAT, BASE_LON, initial_alt, status))
 
     print(f"[SIM] Running {len(drones)} drones. Connecting to {args.kafka_bootstrap}")
 
@@ -165,6 +165,10 @@ def main():
     finally:
         producer.flush()
         consumer.close()
+
+if __name__ == "__main__":
+    main()
+close()
 
 if __name__ == "__main__":
     main()

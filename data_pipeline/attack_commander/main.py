@@ -123,12 +123,6 @@ async def new_target(req: NewTargetRequest):
         "timestamp": iso8601_utc_now()
     }
     
-    deploy_payload = {
-        "action": "DEPLOY_DRONE",
-        "role": "recon",
-        "timestamp": iso8601_utc_now()
-    }
-
     try:
         # 1. Produce to events.intel
         producer.produce(
@@ -137,20 +131,33 @@ async def new_target(req: NewTargetRequest):
             callback=delivery_report
         )
         
-        # 2. Produce to commands.deployment
-        key = str(uuid.uuid4())
-        producer.produce(
-            topic=TOPIC_DEPLOYMENT,
-            key=key,
-            value=json.dumps(deploy_payload),
-            callback=delivery_report
-        )
+        # 2. Produce 3 DEPLOY_DRONE messages to commands.deployment
+        # One recon, two attack
+        deployments = [
+            {"role": "recon"},
+            {"role": "attack"},
+            {"role": "attack"}
+        ]
+        
+        for dep in deployments:
+            deploy_payload = {
+                "action": "DEPLOY_DRONE",
+                "role": dep["role"],
+                "timestamp": iso8601_utc_now()
+            }
+            key = str(uuid.uuid4())
+            producer.produce(
+                topic=TOPIC_DEPLOYMENT,
+                key=key,
+                value=json.dumps(deploy_payload),
+                callback=delivery_report
+            )
         
         producer.flush(1.0)
         return {
-            "status": "target_spawned_and_recon_deployed",
+            "status": "target_spawned_and_swarm_deployed",
             "intel_payload": intel_payload,
-            "deploy_payload": deploy_payload
+            "deployment_count": len(deployments)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

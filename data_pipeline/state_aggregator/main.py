@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import json
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 from aiokafka import AIOKafkaConsumer
@@ -47,8 +49,20 @@ async def kafka_consumer_task():
                     logger.error(f"Error parsing target: {e}")
 
             # Update global state snapshot
-            _global_state.recon_data = [d for d in _drones_registry.values() if d.role == DroneRole.RECON]
-            _global_state.attack_data = [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK]
+            _global_state.timestamp = datetime.utcnow()
+            
+            # Recon data sorted: ACTIVE first
+            _global_state.recon_data = sorted(
+                [d for d in _drones_registry.values() if d.role == DroneRole.RECON],
+                key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
+            )
+            
+            # Attack data sorted: ACTIVE first
+            _global_state.attack_data = sorted(
+                [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK],
+                key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
+            )
+            
             _global_state.target_data = list(_targets_registry.values())
 
     finally:
