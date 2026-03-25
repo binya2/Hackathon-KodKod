@@ -3,8 +3,7 @@ import "leaflet/dist/leaflet.css";
 import ReconDrone from "./reconDrone";
 import AttackDrones from "./attackDrones";
 import Target from "./target";
-import { useEffect, useState } from "react";
-import { useMapEvents } from "react-leaflet";
+import { useState } from "react";
 import { MapController } from "./mapController";
 
 export default function MapView({ data, manualDrone, setManualDrone }) {
@@ -30,16 +29,16 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
         )}
         <MapController manualDrone={manualDrone}
           onMove={(lat, lon) => {
-            console.log(lat,lon);
             fetch("http://localhost:8000/move", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
+                "action": "manual_navigate",
                 drone_id: manualDrone.drone_id,
-                lat,
-                lon,
+                lat:lat,
+                lon:lon,
               }),
             });
           }}
