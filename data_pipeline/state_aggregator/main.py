@@ -98,9 +98,6 @@ async def get_state():
 # This block can be run in PyCharm/Jupyter to generate a local mock_data.json
 # %%
 if __name__ == "__main__":
-    import json
-    from datetime import datetime
-
     mock_state = WorldState(
         timestamp=datetime.utcnow(),
         target_data=[{

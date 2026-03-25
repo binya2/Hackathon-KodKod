@@ -11,6 +11,10 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from confluent_kafka import Producer, Consumer
 
+# %% Configuration
+BASE_LAT = 31.800
+BASE_LON = 35.100
+
 # %% Data Contracts
 class GeoPoint(BaseModel):
     lat: float
@@ -40,7 +44,7 @@ class Drone:
         self.lon = lon
         self.alt = alt
         self.battery = 100.0
-        self.velocity = 15.0  # m/s
+        self.velocity = 5.0  # m/s
         self.heading = random.uniform(0, 360)
         self.target_lat = lat
         self.target_lon = lon
@@ -165,10 +169,6 @@ def main():
     finally:
         producer.flush()
         consumer.close()
-
-if __name__ == "__main__":
-    main()
-close()
 
 if __name__ == "__main__":
     main()
