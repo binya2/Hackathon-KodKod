@@ -112,7 +112,7 @@ def main():
 
             time.sleep(0.1)
     except KeyboardInterrupt:
-        pass
+        print("[SYSTEM] Stopped manually.")
     finally:
         producer.flush()
         consumer.close()

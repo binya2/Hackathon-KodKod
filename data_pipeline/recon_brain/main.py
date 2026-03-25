@@ -166,4 +166,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_recon_brain())
     except KeyboardInterrupt:
-        pass
+        logger.info("Service stopped manually by user.")
