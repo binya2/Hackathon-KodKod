@@ -2,3 +2,4 @@ confluent-kafka
 fastapi
 uvicorn
 pydantic
+httpx
