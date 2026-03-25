@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -20,7 +22,7 @@ class TargetType(str, Enum):
 
 class TargetTelemetry(BaseModel):
     target_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now)
     target_type: TargetType
     position: GeoPoint
     confidence: float
@@ -29,7 +31,7 @@ class TargetTelemetry(BaseModel):
 
 class DroneTelemetry(BaseModel):
     drone_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now)
     role: str
     position: GeoPoint
     velocity: float

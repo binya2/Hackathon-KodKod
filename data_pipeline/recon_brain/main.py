@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import uuid
+from typing import AsyncIterable
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
@@ -18,20 +19,27 @@ RECON_ALTITUDE_OFFSET = 200.0
 # %% Deployment Environment Detection
 RUNNING_IN_K8S = os.environ.get("K8S_DEPLOYMENT", "false").lower() == "true"
 
+# %% Global State
+drones_registry = {}  # drone_id -> DroneTelemetry
+
+
 # %% Recon Logic & Loop
 
-async def process_target_stream(consumer, producer, drones_registry):
+async def process_target_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
             target = TargetTelemetry(**msg.value)
 
-            # Find active recon drones
-            active_recon = [d for d in drones_registry.values() if d.role == "recon" and d.flight_status == "ACTIVE"]
+            # Find active recon drones assigned to THIS target
+            active_recon = [d for d in drones_registry.values() if
+                            d.role == "recon" and
+                            d.flight_status == "ACTIVE" and
+                            d.assigned_target_id == target.target_id]
 
             for drone in active_recon:
                 if drone.assigned_target_id != target.target_id:
                     continue
-                
+
                 nav_cmd = NavigationCommand(
                     drone_id=drone.drone_id,
                     position=GeoPoint(
@@ -48,7 +56,7 @@ async def process_target_stream(consumer, producer, drones_registry):
             logger.error(f"Error processing target in Recon Brain: {e}")
 
 
-async def process_telemetry_stream(consumer, drones_registry):
+async def process_telemetry_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
             tel = DroneTelemetry.model_validate(msg.value)
@@ -57,7 +65,7 @@ async def process_telemetry_stream(consumer, drones_registry):
             logger.error(f"Error parsing telemetry: {e}")
 
 
-async def process_deployment_stream(consumer, producer, drones_registry):
+async def process_deployment_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
             raw_data = json.loads(msg.value.decode("utf-8"))
@@ -74,14 +82,14 @@ async def process_deployment_stream(consumer, producer, drones_registry):
                 if sleeping_recon:
                     target_drone = sleeping_recon[0]
                     wake_cmd = {
-                        "drone_id": target_drone.drone_id, 
+                        "drone_id": target_drone.drone_id,
                         "action": "WAKE_UP",
                         "target_id": target_id
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
                     logger.info(f"[DEPLOY] Waking up {target_drone.drone_id} for target {target_id}")
                 else:
-                    logger.warn("[DEPLOY] No sleeping recon drones available.")
+                    logger.warning("[DEPLOY] No sleeping recon drones available.")
             else:
                 # Capacity full (5)
                 if not RUNNING_IN_K8S:
@@ -135,9 +143,9 @@ async def run_recon_brain():
 
     try:
         await asyncio.gather(
-            process_target_stream(target_consumer, producer, drones_registry),
-            process_telemetry_stream(telemetry_consumer, drones_registry),
-            process_deployment_stream(deploy_consumer, producer, drones_registry)
+            process_target_stream(target_consumer, producer),
+            process_telemetry_stream(telemetry_consumer),
+            process_deployment_stream(deploy_consumer, producer)
         )
     finally:
         await target_consumer.stop()
