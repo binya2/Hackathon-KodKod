@@ -4,15 +4,20 @@ import { droneIcon } from "../icons/drone";
 
 export default function ReconDrone({ data, setManualDrone, manualDrone }) {
   if (!data) return null;
-
-  const position = [data.telemetry.lat, data.telemetry.lon];
   return (
     <>
-      <SmoothMarker position={position} icon={droneIcon}
-        eventHandlers={{
-          click: () => setManualDrone(data)
-        }}
-      />
-    </> 
+      {data.map((drone) => {
+        return (
+        
+            <SmoothMarker key={drone.drone_id} position={[drone.position.lat, drone.position.lon]} icon={droneIcon}
+              eventHandlers={{
+                click: () => setManualDrone(drone)
+              }}
+            />
+        
+        )
+      })}
+
+    </>
   );
 }

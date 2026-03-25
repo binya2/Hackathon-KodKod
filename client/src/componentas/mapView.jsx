@@ -7,15 +7,15 @@ import { useState } from "react";
 import { MapController } from "./mapController";
 
 export default function MapView({ data, manualDrone, setManualDrone }) {
-  const [date, setDate] = useState(new Date())
   let center
   if (data) {
-    center = [data.recon_data.telemetry.lat, data.recon_data.telemetry.lon];
+    center = [data.recon_data[0].position
+    .lat, data.recon_data[0].position.lon];
   }
   else {
     center = [31.7, 35.2];
   }
-  if (data && center[0] === data.recon_data.telemetry.lat) {
+  if (data && center[0] === data.recon_data[0].position.lat) {
     return (
       <MapContainer center={center} zoom={13} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
@@ -23,7 +23,7 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
         {data && (
           <>
             <ReconDrone data={data.recon_data} setManualDrone={setManualDrone}/>
-            <AttackDrones squads={data.attack_data?.squads} />
+            <AttackDrones data={data.attack_data} />
             <Target data={data.target_data} />
           </>
         )}
