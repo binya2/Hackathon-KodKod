@@ -30,6 +30,7 @@ class DroneTelemetry(BaseModel):
     heading: float
     battery_percent: float
     flight_status: str = "SLEEP"
+    assigned_target_id: Optional[str] = None
 
 
 class TargetType(str, Enum):

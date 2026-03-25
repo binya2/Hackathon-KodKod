@@ -6,7 +6,7 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole
 
@@ -108,6 +108,20 @@ app = FastAPI(title="State Aggregator API", lifespan=lifespan)
 async def get_state():
     """Returns the latest unified World State."""
     return _global_state
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("WebSocket client connected.")
+    try:
+        while True:
+            await websocket.send_text(_global_state.model_dump_json())
+            await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        logger.info("WebSocket client disconnected.")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
 
 
 # %% Mock Data Generation Cell
