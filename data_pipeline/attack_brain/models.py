@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 from datetime import datetime
-from enum import Enum
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import Optional
+
+from pydantic import BaseModel
+
 
 # %% Models Definition
 class GeoPoint(BaseModel):
     lat: float
     lon: float
     alt: Optional[float] = None
+
 
 class DroneTelemetry(BaseModel):
     drone_id: str
@@ -21,6 +24,7 @@ class DroneTelemetry(BaseModel):
     flight_status: str = "SLEEP"
     assigned_target_id: Optional[str] = None
 
+
 class TargetTelemetry(BaseModel):
     target_id: str
     timestamp: datetime
@@ -28,6 +32,7 @@ class TargetTelemetry(BaseModel):
     position: GeoPoint
     confidence: float
     health: float = 100.0
+
 
 class DroneCommand(BaseModel):
     drone_id: str

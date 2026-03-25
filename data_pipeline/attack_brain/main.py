@@ -1,10 +1,13 @@
 # %% Imports
 import asyncio
 import json
-import os
 import logging
+import os
 import uuid
+from typing import AsyncIterable
+
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+
 from models import TargetTelemetry, DroneTelemetry, DroneCommand, GeoPoint
 
 # %% Setup Logging
@@ -21,7 +24,7 @@ drones_registry = {}  # drone_id -> DroneTelemetry
 
 
 # %% Logic Loop
-async def process_target_stream(consumer):
+async def process_target_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
             raw_data = json.loads(msg.value.decode("utf-8"))
@@ -31,7 +34,7 @@ async def process_target_stream(consumer):
             logger.error(f"[ERROR] Parsing target: {e}")
 
 
-async def process_telemetry_stream(consumer):
+async def process_telemetry_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
             raw_data = json.loads(msg.value.decode("utf-8"))
@@ -41,7 +44,7 @@ async def process_telemetry_stream(consumer):
             logger.error(f"[ERROR] Parsing telemetry: {e}")
 
 
-async def process_deployment_stream(consumer, producer):
+async def process_deployment_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
             raw_data = json.loads(msg.value.decode("utf-8"))
@@ -50,24 +53,28 @@ async def process_deployment_stream(consumer, producer):
             if role != "attack":
                 continue
 
-            active_attack_drones = [d for d in drones_registry.values() if
-                                    d.role == "attack" and d.flight_status == "ACTIVE"]
+            active_attack_drones = [
+                d for d in drones_registry.values()
+                if d.role == "attack" and d.flight_status == "ACTIVE"
+            ]
 
             if len(active_attack_drones) < 5:
                 # Warm Pool: Find and wake a sleeping drone
-                sleeping_drones = [d for d in drones_registry.values() if
-                                   d.role == "attack" and d.flight_status == "SLEEP"]
+                sleeping_drones = [
+                    d for d in drones_registry.values()
+                    if d.role == "attack" and d.flight_status == "SLEEP"
+                ]
                 if sleeping_drones:
                     target_drone = sleeping_drones[0]
                     wake_cmd = {
-                        "drone_id": target_drone.drone_id, 
+                        "drone_id": target_drone.drone_id,
                         "action": "WAKE_UP",
                         "target_id": target_id
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
                     logger.info(f"[DEPLOY] Waking up {target_drone.drone_id} for target {target_id}")
                 else:
-                    logger.warn("[DEPLOY] No sleeping attack drones available.")
+                    logger.warning("[DEPLOY] No sleeping attack drones available.")
             else:
                 # Capacity reached: Handle based on environment
                 if not RUNNING_IN_K8S:
@@ -87,8 +94,10 @@ async def assignment_loop(producer):
     alt_separation = 20.0
     while True:
         # Filter active attack drones that have an assigned target
-        active_attack_drones = [d for d in drones_registry.values() if
-                                d.role == "attack" and d.flight_status == "ACTIVE" and d.assigned_target_id]
+        active_attack_drones = [
+            d for d in drones_registry.values()
+            if d.role == "attack" and d.flight_status == "ACTIVE" and d.assigned_target_id
+        ]
 
         for drone in active_attack_drones:
             target = targets.get(drone.assigned_target_id)
