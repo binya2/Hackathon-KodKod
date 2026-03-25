@@ -5,7 +5,7 @@ The **Recon Brain** manages the intelligence and surveillance lifecycle, coordin
 ## Role in C4I Swarm
 - **Autonomous Tracking**: Calculates navigation waypoints for recon drones to orbit targets.
 - **Intelligence Scrambling**: Automatically manages the deployment of recon assets from the "Warm Pool."
-- **Capacity Management**: Ensures optimal coverage by maintaining up to 5 active recon units per instance.
+- **Capacity Management**: Ensures optimal coverage by maintaining up to five active recon units per instance.
 
 ## Kafka Topics
 - **Consumes**:
@@ -16,7 +16,7 @@ The **Recon Brain** manages the intelligence and surveillance lifecycle, coordin
   - `commands.drones`: Navigation and status commands for drones.
 
 ## Internal Logic Highlights
-- **Altitude Offsetting**: Recon drones are commanded to a fixed altitude of 200m above targets to optimize field of view.
+- **Altitude Offsetting**: Recon drones are commanded to a fixed altitude of 200 m above targets to optimize field of view.
 - **Warm Pool Scaling**: Automatically transitions drones from `SLEEP` to `ACTIVE` flight status upon deployment requests.
 - **Smart Scaling**: 
   - **Docker Compose**: Uses message re-production to Kafka with unique keys for horizontal distribution.

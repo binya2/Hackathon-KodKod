@@ -11,7 +11,7 @@ This package simulates the physical environment, including the drone fleet and g
 
 ### 2. Target Simulator (`target_sim.py`)
 - **Event-Driven Activation**: Remains inactive until a `SPAWN_TARGET` event is received on the `events.intel` topic.
-- **Battle Damage Assessment (BDA)**: Listens for `PAYLOAD_DROPPED` events. If a payload falls within 100m, target health is reduced.
+- **Battle Damage Assessment (BDA)**: Listens for `PAYLOAD_DROPPED` events. If a payload falls within 100 m, target health is reduced.
 - **Destruction Logic**: Once health reaches 0, the target stops emitting valid telemetry and is marked as destroyed.
 
 ## Kafka Topics

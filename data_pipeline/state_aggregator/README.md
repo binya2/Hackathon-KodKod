@@ -23,7 +23,7 @@ Returns the complete unified World State.
   "timestamp": "2024-03-24T12:00:00Z",
   "target_data": [{"target_id": "TGT-1", "position": {"lat": 31.7, "lon": 35.2}, "confidence": 0.95}],
   "recon_data": [{"drone_id": "DRN-1", "flight_status": "ACTIVE", "battery": 88.5}],
-  "attack_data": [...]
+  "attack_data": ["..."]
 }
 ```
 

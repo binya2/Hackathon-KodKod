@@ -3,12 +3,12 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole
+from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole, GeoPoint, TargetType
 
 # %% Global State Setup
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +49,7 @@ async def kafka_consumer_task():
                     logger.error(f"Error parsing target: {e}")
 
             # Update global state snapshot
-            _global_state.timestamp = datetime.utcnow()
+            _global_state.timestamp = datetime.now(timezone.utc)
 
             # Recon data sorted: ACTIVE first
             _global_state.recon_data = sorted(
@@ -89,7 +89,7 @@ async def state_publisher_task():
 # %% FastAPI App & Lifespan
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     # Startup: Start Kafka tasks
     consumer_task = asyncio.create_task(kafka_consumer_task())
     publisher_task = asyncio.create_task(state_publisher_task())
@@ -130,16 +130,28 @@ async def websocket_endpoint(websocket: WebSocket):
 # %%
 if __name__ == "__main__":
     mock_state = WorldState(
-        timestamp=datetime.utcnow(),
-        target_data=[{
-            "target_id": "TGT_001", "target_type": "vehicle",
-            "position": {"lat": 32.1, "lon": 34.8}, "confidence": 0.99
-        }],
-        recon_data=[{
-            "drone_id": "RECON_1", "role": "recon",
-            "position": {"lat": 32.11, "lon": 34.81, "alt": 150.0},
-            "velocity": 10.0, "heading": 0.0, "battery_percent": 90.0
-        }]
+        timestamp=datetime.now(timezone.utc),
+
+        target_data=[
+            TargetTelemetry(
+                target_id="TGT_001",
+                target_type=TargetType.VEHICLE,
+                position=GeoPoint(lat=32.1, lon=34.8),
+                confidence=0.99
+            )
+        ],
+
+        recon_data=[
+            DroneTelemetry(
+                drone_id="RECON_1",
+                role=DroneRole.RECON,
+                position=GeoPoint(lat=32.11, lon=34.81, alt=150.0),
+                velocity=10.0,
+                heading=0.0,
+                battery_percent=90.0,
+                flight_status="ACTIVE"
+            )
+        ]
     )
 
     with open("mock_data.json", "w") as f:

@@ -104,7 +104,8 @@ async def new_target(req: NewTargetRequest):
         sleeping_attack = sum(1 for d in state.get("attack_data", []) if d.get("flight_status") == "SLEEP")
 
         if sleeping_recon < 1 or sleeping_attack < 2:
-            msg = f"Insufficient sleeping drones available. Found Recon: {sleeping_recon}, Attack: {sleeping_attack}. Required: 1 Recon, 2 Attack."
+            msg = (f"Insufficient sleeping drones available. Found Recon: {sleeping_recon}, "
+                   f"Attack: {sleeping_attack}. Required: 1 Recon, 2 Attack.")
             log_to_kafka("WARN", msg)
             raise HTTPException(status_code=400, detail=msg)
 
