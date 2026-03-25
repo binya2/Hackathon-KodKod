@@ -59,7 +59,6 @@ const handleIncomingTelemetry = (rawData) => {
 
         io.emit('tactical_update', tacticalSnapshot);
 
-        console.log(`[C2] Telemetry sent. Status: ${currentTargetStatus}`);
     } catch (error) {
         console.error('Error processing mission data:', error.message);
     }
