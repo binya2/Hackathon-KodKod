@@ -90,7 +90,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.571906Z",
             "role": "recon",
             "position": {
-              "lat": 31.7,
+              "lat": 31.1,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -104,7 +104,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.571990Z",
             "role": "recon",
             "position": {
-              "lat": 31.7,
+              "lat": 32.2,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -132,7 +132,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572072Z",
             "role": "recon",
             "position": {
-              "lat": 31.7,
+              "lat": 31.3,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -146,7 +146,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.571650Z",
             "role": "recon",
             "position": {
-              "lat": 31.7,
+              "lat": 31.4,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -162,7 +162,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572147Z",
             "role": "attack",
             "position": {
-              "lat": 31.9,
+              "lat": 31.5,
               "lon": 35.2,
               "alt": 2.600500000000036
             },
@@ -177,7 +177,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.1,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -191,7 +191,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.3,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -205,7 +205,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.4,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -219,7 +219,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.401,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -233,7 +233,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.402,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -247,7 +247,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.403,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -261,7 +261,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.404,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -275,7 +275,7 @@ export default function App() {
             "role": "attack",
             "position": {
               "lat": 31.7,
-              "lon": 35.2,
+              "lon": 35.407,
               "alt": 0.0
             },
             "velocity": 15.0,
@@ -288,7 +288,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572197Z",
             "role": "attack",
             "position": {
-              "lat": 31.7,
+              "lat": 31.120,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -316,7 +316,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572172Z",
             "role": "attack",
             "position": {
-              "lat": 31.7,
+              "lat": 31.703,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -330,7 +330,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572180Z",
             "role": "attack",
             "position": {
-              "lat": 31.7,
+              "lat": 31.407,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -344,7 +344,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572221Z",
             "role": "attack",
             "position": {
-              "lat": 31.7,
+              "lat": 31.408,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -358,7 +358,7 @@ export default function App() {
             "timestamp": "2026-03-25T09:42:34.572229Z",
             "role": "attack",
             "position": {
-              "lat": 31.7,
+              "lat": 31.305,
               "lon": 35.2,
               "alt": 0.0
             },
@@ -402,7 +402,7 @@ export default function App() {
         {explosionPos && <ExplosionMarker position={explosionPos} />}
       </MapView>
       <AttackPanel
-        squads={data?.attack_data?.squads}
+        data={data?.attack_data}
         onEngage={handleEngage}
       />
       <VideoPanel />

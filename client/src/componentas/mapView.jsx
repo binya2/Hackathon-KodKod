@@ -7,7 +7,6 @@ import { useState } from "react";
 import { MapController } from "./mapController";
 
 export default function MapView({ data, manualDrone, setManualDrone }) {
-  const [date, setDate] = useState(new Date())
   let center
   if (data) {
     center = [data.recon_data[0].position
@@ -24,7 +23,7 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
         {data && (
           <>
             <ReconDrone data={data.recon_data} setManualDrone={setManualDrone}/>
-            <AttackDrones squads={data.attack_data?.attack_data} />
+            <AttackDrones data={data.attack_data} />
             <Target data={data.target_data} />
           </>
         )}
