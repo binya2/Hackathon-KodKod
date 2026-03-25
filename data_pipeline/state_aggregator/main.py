@@ -1,9 +1,9 @@
 import asyncio
+import json
 import logging
 import os
-import json
-from datetime import datetime
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -50,19 +50,19 @@ async def kafka_consumer_task():
 
             # Update global state snapshot
             _global_state.timestamp = datetime.utcnow()
-            
+
             # Recon data sorted: ACTIVE first
             _global_state.recon_data = sorted(
                 [d for d in _drones_registry.values() if d.role == DroneRole.RECON],
                 key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
             )
-            
+
             # Attack data sorted: ACTIVE first
             _global_state.attack_data = sorted(
                 [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK],
                 key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
             )
-            
+
             _global_state.target_data = list(_targets_registry.values())
 
     finally:

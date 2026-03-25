@@ -23,7 +23,7 @@ class GeoPoint(BaseModel):
 
 class DroneTelemetry(BaseModel):
     drone_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now)
     role: DroneRole
     position: GeoPoint
     velocity: float
@@ -41,7 +41,7 @@ class TargetType(str, Enum):
 
 class TargetTelemetry(BaseModel):
     target_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now)
     target_type: TargetType
     position: GeoPoint
     confidence: float
@@ -49,7 +49,7 @@ class TargetTelemetry(BaseModel):
 
 
 class WorldState(BaseModel):
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now)
     target_data: List[TargetTelemetry] = []
     recon_data: List[DroneTelemetry] = []
     attack_data: List[DroneTelemetry] = []
