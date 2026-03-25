@@ -24,7 +24,7 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
         {data && (
           <>
             <ReconDrone data={data.recon_data} setManualDrone={setManualDrone}/>
-            <AttackDrones squads={data.attack_data?.squads} />
+            <AttackDrones squads={data.attack_data?.attack_data} />
             <Target data={data.target_data} />
           </>
         )}
