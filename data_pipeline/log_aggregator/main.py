@@ -1,14 +1,16 @@
-import os
 import json
+import os
+
 from kafka import KafkaConsumer
 
 # %% Configuration
 KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = "system.logs"
 
+
 def run_log_aggregator():
     print(f"[*] Log Aggregator starting... Listening on {KAFKA_BOOTSTRAP} topic: {TOPIC}")
-    
+
     consumer = KafkaConsumer(
         TOPIC,
         bootstrap_servers=[KAFKA_BOOTSTRAP],
@@ -25,13 +27,14 @@ def run_log_aggregator():
             level = log_data.get("level", "INFO")
             service = log_data.get("service", "unknown")
             msg = log_data.get("message", "")
-            
+
             # Formatted console output
             print(f"[{timestamp}] [{level:5}] [{service:16}] {msg}")
     except KeyboardInterrupt:
         print("[!] Stopping Log Aggregator...")
     finally:
         consumer.close()
+
 
 if __name__ == "__main__":
     run_log_aggregator()

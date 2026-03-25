@@ -83,6 +83,13 @@ services:
       kafka:
         condition: service_healthy
 
+  log_aggregator:
+    build: ./log_aggregator
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+
   history_archive_service:
     build: ./history_writer
     depends_on:
