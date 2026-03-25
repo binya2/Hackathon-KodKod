@@ -27,6 +27,18 @@ class TargetTelemetry(BaseModel):
     health: float = 100.0
 
 
+class DroneTelemetry(BaseModel):
+    drone_id: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    role: str
+    position: GeoPoint
+    velocity: float
+    heading: float
+    battery_percent: float
+    flight_status: str = "SLEEP"
+    assigned_target_id: Optional[str] = None
+
+
 class NavigationCommand(BaseModel):
     drone_id: str
     position: GeoPoint

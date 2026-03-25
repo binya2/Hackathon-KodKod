@@ -29,6 +29,9 @@ async def process_target_stream(consumer, producer, drones_registry):
             active_recon = [d for d in drones_registry.values() if d.role == "recon" and d.flight_status == "ACTIVE"]
 
             for drone in active_recon:
+                if drone.assigned_target_id != target.target_id:
+                    continue
+                
                 nav_cmd = NavigationCommand(
                     drone_id=drone.drone_id,
                     position=GeoPoint(
@@ -59,6 +62,7 @@ async def process_deployment_stream(consumer, producer, drones_registry):
         try:
             raw_data = json.loads(msg.value.decode("utf-8"))
             role = raw_data.get("role")
+            target_id = raw_data.get("target_id")
             if role != "recon":
                 continue
 
@@ -69,9 +73,13 @@ async def process_deployment_stream(consumer, producer, drones_registry):
                                   d.role == "recon" and d.flight_status == "SLEEP"]
                 if sleeping_recon:
                     target_drone = sleeping_recon[0]
-                    wake_cmd = {"drone_id": target_drone.drone_id, "action": "WAKE_UP"}
+                    wake_cmd = {
+                        "drone_id": target_drone.drone_id, 
+                        "action": "WAKE_UP",
+                        "target_id": target_id
+                    }
                     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
-                    logger.info(f"[DEPLOY] Waking up {target_drone.drone_id}")
+                    logger.info(f"[DEPLOY] Waking up {target_drone.drone_id} for target {target_id}")
                 else:
                     logger.warn("[DEPLOY] No sleeping recon drones available.")
             else:
