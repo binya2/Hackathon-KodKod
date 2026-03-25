@@ -5,7 +5,7 @@ const stateSchema = new mongoose.Schema({
     target_data: {
         status: String,
         location: { lat: Number, lon: Number, speed: Number },
-        predicted_polygon: [[Number]] // מערך של קואורדינטות
+        predicted_polygon: [[Number]]
     },
     recon_data: {
         active_drone: String,
@@ -13,9 +13,9 @@ const stateSchema = new mongoose.Schema({
         telemetry: { lat: Number, lon: Number, alt: Number }
     },
     attack_data: {
-        squads: mongoose.Schema.Types.Mixed // מבנה מורכב, נשתמש ב-Mixed לגמישות
+        squads: mongoose.Schema.Types.Mixed
     }
-}, { collection: 'states' }); // לוודא שזה השם שהדאטא נתנו לאוסף
+}, { collection: 'states' });
 
 const State = mongoose.model('State', stateSchema);
 
