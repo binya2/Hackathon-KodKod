@@ -4,7 +4,6 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.8.3
     container_name: kafka
-    user: root
     ports:
       - "9092:9092"
     environment:
@@ -12,57 +11,121 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-
-    volumes:
-      - ./data_volume/kafka:/var/lib/kafka/data
     healthcheck:
       test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092" ]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
+#    volumes:
+#      - kafka_data:/var/lib/kafka/data
 
   mongo:
-    image: mongo:latest
-    container_name: local-mongo
+    image: mongo:7
+    container_name: mongodb
     ports:
-    - 27017:27017
-    volumes:
-    - ./data_volume/mongo:/data/db
+      - "27017:27017"
+#    volumes:
+#      - mongo_data:/data/db
 
   state_aggregator:
-    build:
-      context: ./state_aggregator
+    build: 
+      context: .
+      dockerfile: ./state_aggregator/Dockerfile
     ports:
       - "8000:8000"
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - MONGO_URI=mongodb://mongodb:27017
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       kafka:
         condition: service_healthy
-      mongodb:
-        condition: service_started
 
   recon_brain:
-    build:
-      context: ./recon_brain
+    build: 
+      context: .
+      dockerfile: ./recon_brain/Dockerfile
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
       kafka:
         condition: service_healthy
 
-volumes:
-  mongodb_data:
+  attack_brain:
+    build: 
+      context: .
+      dockerfile: ./attack_brain/Dockerfile
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  drone_sim:
+    build: 
+      context: .
+      dockerfile: ./edge_simulators/Dockerfile
+    command: python drones_sim.py --kafka-bootstrap kafka:29092 --num-drones 20
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  target_sim:
+    build: 
+      context: .
+      dockerfile: ./edge_simulators/Dockerfile
+    command: python target_sim.py --kafka-bootstrap kafka:29092
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  attack_commander:
+    build: 
+      context: .
+      dockerfile: ./attack_commander/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  log_aggregator:
+    build: 
+      context: .
+      dockerfile: ./log_aggregator/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+
+  history_archive_service:
+    build: 
+      context: .
+      dockerfile: ./history_writer/Dockerfile
+    depends_on:
+      mongo:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - KAFKA_TOPIC=aggregated-state-topic
+      - KAFKA_GROUP_ID=history-archive-group
+
+#volumes:
+#  kafka_data:
+#  mongo_data:
