@@ -1,54 +1,23 @@
-import os
 import json
 import uuid
 from datetime import datetime, timezone
+
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from confluent_kafka import Producer
 
-
-# --- Models ---
-# %% Data Contracts
-class EngageRequest(BaseModel):
-    action: str
-    target_id: str
-    drone_id: str
-
-
-class DeployRequest(BaseModel):
-    role: str  # recon or attack
-
-
-class NewTargetRequest(BaseModel):
-    lat: float
-    lon: float
-
+from models import (
+    EngageRequest, DeployRequest, NewTargetRequest,
+    RecallRequest, ManualMoveRequest, ResumeAutoRequest
+)
+from kafka_client import producer, delivery_report
 
 # --- App Initialization ---
 app = FastAPI(title="Attack Commander Service")
 
-# --- Kafka Configuration ---
-KAFKA_BOOTSTRAP = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+# --- Constants ---
 TOPIC_COMMANDS = "commands.attack"
 TOPIC_DEPLOYMENT = "commands.deployment"
 TOPIC_INTEL = "events.intel"
-
-
-def delivery_report(err, msg):
-    if err is not None:
-        print(f"[KAFKA-PRODUCER] Failed: {err}")
-    else:
-        print(f"[KAFKA-PRODUCER] Message sent to {msg.topic()} [{msg.partition()}]")
-
-
-print(f"[SYSTEM] Attack Commander connecting to Kafka: {KAFKA_BOOTSTRAP}")
-
-producer_conf = {
-    "bootstrap.servers": KAFKA_BOOTSTRAP,
-    "client.id": "attack-commander",
-    "allow.auto.create.topics": "true"
-}
-producer = Producer(producer_conf)
+TOPIC_DRONES = "commands.drones"
 
 
 def iso8601_utc_now() -> str:
@@ -57,6 +26,7 @@ def iso8601_utc_now() -> str:
 
 # --- Endpoints ---
 # %% API Endpoints
+
 @app.post("/engage")
 async def engage(req: EngageRequest):
     print(f"[API] Engage: {req.drone_id} vs {req.target_id}")
@@ -78,7 +48,7 @@ async def engage(req: EngageRequest):
             value=json.dumps(payload),
             callback=delivery_report
         )
-        producer.flush(1.0)  # Force delivery
+        producer.flush(1.0)
         return {"status": "command_sent", "payload": payload}
     except Exception as e:
         print(f"[ERROR] Kafka Error: {e}")
@@ -93,11 +63,11 @@ async def deploy_drone(req: DeployRequest):
     payload = {
         "action": "DEPLOY_DRONE",
         "role": req.role,
+        "target_id": req.target_id,
         "timestamp": iso8601_utc_now()
     }
 
     try:
-        # Use random UUID as key for random partition routing
         key = str(uuid.uuid4())
         producer.produce(
             topic=TOPIC_DEPLOYMENT,
@@ -113,36 +83,27 @@ async def deploy_drone(req: DeployRequest):
 
 @app.post("/new_target")
 async def new_target(req: NewTargetRequest):
-    """
-    Creates a new target and auto-scrambles the first recon drone in one call.
-    """
+    target_id = "TGT-1"
     intel_payload = {
         "action": "SPAWN_TARGET",
         "lat": req.lat,
         "lon": req.lon,
         "timestamp": iso8601_utc_now()
     }
-    
+
     try:
-        # 1. Produce to events.intel
         producer.produce(
             topic=TOPIC_INTEL,
             value=json.dumps(intel_payload),
             callback=delivery_report
         )
-        
-        # 2. Produce 3 DEPLOY_DRONE messages to commands.deployment
-        # One recon, two attack
-        deployments = [
-            {"role": "recon"},
-            {"role": "attack"},
-            {"role": "attack"}
-        ]
-        
+
+        deployments = [{"role": "recon"}, {"role": "attack"}, {"role": "attack"}]
         for dep in deployments:
             deploy_payload = {
                 "action": "DEPLOY_DRONE",
                 "role": dep["role"],
+                "target_id": target_id,
                 "timestamp": iso8601_utc_now()
             }
             key = str(uuid.uuid4())
@@ -152,7 +113,7 @@ async def new_target(req: NewTargetRequest):
                 value=json.dumps(deploy_payload),
                 callback=delivery_report
             )
-        
+
         producer.flush(1.0)
         return {
             "status": "target_spawned_and_swarm_deployed",
@@ -163,6 +124,43 @@ async def new_target(req: NewTargetRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/recall_drone")
+async def recall_drone(req: RecallRequest):
+    payload = {
+        "drone_id": req.drone_id,
+        "action": "RECALL_DRONE",
+        "timestamp": iso8601_utc_now()
+    }
+    producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
+    producer.flush(1.0)
+    return {"status": "recall_sent", "payload": payload}
+
+
+@app.post("/manual_move")
+async def manual_move(req: ManualMoveRequest):
+    payload = {
+        "drone_id": req.drone_id,
+        "action": "MANUAL_MOVE",
+        "position": {"lat": req.lat, "lon": req.lon, "alt": req.alt},
+        "timestamp": iso8601_utc_now()
+    }
+    producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
+    producer.flush(1.0)
+    return {"status": "manual_move_sent", "payload": payload}
+
+
+@app.post("/resume_auto")
+async def resume_auto(req: ResumeAutoRequest):
+    payload = {
+        "drone_id": req.drone_id,
+        "action": "RESUME_AUTO",
+        "timestamp": iso8601_utc_now()
+    }
+    producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
+    producer.flush(1.0)
+    return {"status": "resume_auto_sent", "payload": payload}
+
+
 @app.get("/health")
 async def health():
     return {"status": "up"}
@@ -170,5 +168,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)
