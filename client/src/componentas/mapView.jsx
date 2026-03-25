@@ -29,18 +29,19 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
         )}
         <MapController manualDrone={manualDrone}
           onMove={(lat, lon) => {
-            fetch("http://localhost:8000/move", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                "action": "manual_navigate",
-                drone_id: manualDrone.drone_id,
-                lat:lat,
-                lon:lon,
-              }),
-            });
+            try {
+              fetch("http://localhost:3001/api/actions/navigate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  drone_id: manualDrone.drone_id,
+                  lat:lat,
+                  lon,lon
+                }),
+              });
+            } catch (err) {
+              console.error("Takeoff failed", err);
+            }
           }}
         />
       </MapContainer>

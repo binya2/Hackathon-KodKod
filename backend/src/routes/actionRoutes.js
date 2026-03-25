@@ -1,5 +1,5 @@
 import express from 'express';
-import { getCurrentState, handleEngage, handleNavigate, getDroneHistory, handleDeployDrone } from '../controllers/actionController.js';
+import { getCurrentState, handleEngage, handleNavigate, getDroneHistory, handleDeployDrone, handleAuto } from '../controllers/actionController.js';
 import { handleStrikeOrder } from "../controllers/attackController.js";
 
 const router = express.Router();
@@ -11,6 +11,8 @@ router.post('/engage', handleEngage);
 
 // פקודת ניווט ידני
 router.post('/navigate', handleNavigate);
+
+router.post('/auto',handleAuto)
 
 // פקודת ה-Strike.  logic 
 router.post('/strike', handleStrikeOrder);

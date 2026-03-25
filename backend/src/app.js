@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import dotenv from 'dotenv';
 import { Server } from 'socket.io';
 import actionRoutes from "./routes/actionRoutes.js";
-
+import cors from 'cors'
 import { processMissionData } from './services/cvEngine.js';
 import { calculateHitDamage } from "./controllers/attackController.js";
 
@@ -11,6 +11,7 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+app.use(cors())
 
 app.use("/api/actions", actionRoutes);
 

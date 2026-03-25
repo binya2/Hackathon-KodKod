@@ -1,77 +1,86 @@
-import { useState } from "react";
+import React from 'react';
 
-export default function AttackPanel({ data, onEngage }) {
-    const [selectedDrone, setSelectedDrone] = useState(null);
-    if (!data) return null;
+export default function UnifiedDronePanel({ data, onTakeoff, onEngage }) {
+    if (!data) return <div className="side-panel">ממתין לנתונים...</div>;
+
+    const reconDrones = data.recon_data || [];
+    const attackDrones = data.attack_data || [];
 
     return (
-        <div style={{ position: "absolute", right: "10px", top: "10px", background: "white", padding: 10, zIndex: 9999, width: "180px", maxWidth: "90vw", boxSizing: "border-box" }}>
-            <h3>Attack Panel</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-                {data.map(((drone) => (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "5px" }} key={drone.drone_id}>
-                            <p style={{
-                                fontSize: "0.7rem",
-                                margin: 0
-                            }}>id: {drone.drone_id}</p>
-                            <button style={{ width: "3rem", fontSize: "0.5rem", height: "1rem", background: "blue", border: 0, color: "white" }}
-                                onClick={() => {
-                                    setSelectedDrone(drone)
-                                }}
-                                disabled={drone.weapons_ready === 0}
+        <div className="side-panel" style={{
+            position: 'absolute', right: '20px', top: '20px', width: '280px',
+            backgroundColor: 'rgba(30, 30, 30, 0.9)', color: 'white',
+            padding: '15px', borderRadius: '12px', zIndex: 1000,
+            maxHeight: '85vh', overflowY: 'auto', direction: 'rtl',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.5)', border: '1px solid #444',
+            fontFamily: 'sans-serif'
+        }}>
+            <h2 style={{ fontSize: '18px', textAlign: 'center', borderBottom: '1px solid #555', paddingBottom: '10px', marginTop: 0 }}>
+                🎮 מרכז שליטה ובקרה
+            </h2>
+
+
+            <section style={{ marginBottom: '20px' }}>
+                <h3 style={{ color: '#00d4ff', fontSize: '16px', marginBottom: '10px' }}>📡 רחפני תצפית ({reconDrones.length})</h3>
+                {reconDrones.map((drone) => (
+                    <div key={drone.drone_id} style={droneCardStyle}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>🆔 {drone.drone_id}</span>
+                            <span style={{ fontSize: '12px', opacity: 0.8 }}>🔋 {drone.battery_percent || 100}%</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }}>
+                            <button onClick={() => onTakeoff(drone.drone_id)} style={btnStyle('#4CAF50')}>הזנק</button>
+                        </div>
+                    </div>
+                ))}
+                {reconDrones.length === 0 && <div style={{ fontSize: '12px', opacity: 0.5 }}>אין רחפני תצפית זמינים</div>}
+            </section>
+            <section>
+                <h3 style={{ color: '#ff4d4d', fontSize: '16px', marginBottom: '10px' }}>🚀 רחפני תקיפה ({attackDrones.length})</h3>
+                {attackDrones.map((drone) => (
+                    <div key={drone.drone_id} style={droneCardStyle}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>🆔 {drone.drone_id}</span>
+                            <span style={{ fontSize: '12px' }}>🔋 {drone.battery_percent}%</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }}>
+                            <button onClick={() => onTakeoff(drone.drone_id)} style={btnStyle('#4CAF50')}>הזנק</button>
+                            <button
+                                onClick={() => onEngage(drone.drone_id)}
+                                disabled={!drone.weapons_ready || drone.weapons_ready === 0}
+                                style={btnStyle('#f44336', !drone.weapons_ready || drone.weapons_ready === 0)}
                             >
-                                ENTER
+                                תקוף ({drone.weapons_ready || 0})
                             </button>
                         </div>
-
-                    ))
-                )}
-            </div>
-            {selectedDrone && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "120px",
-                        right: "10px",
-                        background: "blue",
-                        color: "white",
-                        padding: "10px",
-                        borderRadius: "8px",
-                        zIndex: 10000,
-                        width: "150px"
-                    }}
-                >
-                    <h4>Drone Info</h4>
-                    <p>Ammo: {selectedDrone.weapons_ready}</p>
-                    <p>Status: {selectedDrone.status}</p>
-                    <button
-                        style={{
-                            width: "100%",
-                            background: "red",
-                            color: "white",
-                            border: "none",
-                            padding: "5px",
-                            marginTop: "5px"
-                        }}
-                        onClick={() => {
-                            onEngage(selectedDrone.drone_id);
-                            setSelectedDrone(null);
-                        }}
-                    >
-                        ENGAGE
-                    </button>
-                    <button
-                        style={{
-                            width: "100%",
-                            marginTop: "5px"
-                        }}
-                        onClick={() => setSelectedDrone(null)}
-                    >
-                        CLOSE
-                    </button>
-                </div>
-            )}
+                    </div>
+                ))}
+                {attackDrones.length === 0 && <div style={{ fontSize: '12px', opacity: 0.5 }}>אין רחפני תקיפה זמינים</div>}
+            </section>
         </div>
-
-    )
+    );
 }
+
+// עיצובים קבועים
+const droneCardStyle = {
+    backgroundColor: '#3d3d3d',
+    padding: '10px',
+    borderRadius: '8px',
+    marginBottom: '10px',
+    border: '1px solid #555',
+    boxShadow: 'inset 0 0 5px rgba(0,0,0,0.2)'
+};
+
+const btnStyle = (color, disabled) => ({
+    flex: 1,
+    padding: '8px 4px',
+    border: 'none',
+    borderRadius: '4px',
+    backgroundColor: color,
+    color: 'white',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    opacity: disabled ? 0.3 : 1,
+    transition: 'opacity 0.2s'
+});

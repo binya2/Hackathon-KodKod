@@ -34,26 +34,30 @@ export const handleEngage = async (req, res) => {
 };
 
 export const handleNavigate = async (req, res) => {
-    const { action, drone_id, lat, lon } = req.body;
+    const { drone_id, lat, lon } = req.body;
 
-    if (!action) return res.status(400).json({ status: 'error', message: 'Missing field: action' });
     if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
     if (lat === undefined || lat === null) return res.status(400).json({ status: 'error', message: 'Missing field: lat' });
     if (lon === undefined || lon === null) return res.status(400).json({ status: 'error', message: 'Missing field: lon' });
-
     try {
         console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
         console.log(`Drone ID: ${drone_id} to Coordinates: ${lat}, ${lon}`);
 
-        const response = await fetch('http://localhost:8001/engage', {
+        const response = await fetch('http://localhost:8001/manual_move', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, drone_id, lat, lon })
+            body: JSON.stringify({
+                drone_id: drone_id,
+                "lat": lat,
+                "lon": lon,
+                "alt": 150.0
+            })
         });
 
         if (!response.ok) throw new Error('Data Team API returned an error');
 
         const data = await response.json();
+
 
         return res.status(200).json({
             status: 'success',
@@ -67,6 +71,35 @@ export const handleNavigate = async (req, res) => {
     }
 };
 
+export const handleAuto = async (req, res) => {
+    const { drone_id } = req.body;
+    if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
+
+        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
+        console.log(`Drone ID: ${drone_id}`);
+
+        const response = await fetch('http://localhost:8001/resume_auto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+
+                "drone_id": drone_id,
+
+            })
+        });
+
+        if (!response.ok) throw new Error('Data Team API returned an error');
+
+        const data = await response.json();
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Navigation update successful',
+            data: data,
+                
+        });
+
+};
 
 export const getDroneHistory = async (req, res) => {
     try {
@@ -89,7 +122,7 @@ export const getDroneHistory = async (req, res) => {
 
 export const getCurrentState = async (req, res) => {
     try {
-        const response = await fetch('http://localhost:8000/state', {
+        const response = await fetch('http://localhost:8000/api/state', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -109,7 +142,7 @@ export const getCurrentState = async (req, res) => {
 
 
 export const handleDeployDrone = async (req, res) => {
-    const { role } = req.body;
+    const { role, target_id } = req.body;
 
     if (!role || (role !== 'recon' && role !== 'attack')) {
         return res.status(400).json({
@@ -124,8 +157,16 @@ export const handleDeployDrone = async (req, res) => {
         const response = await fetch('http://localhost:8001/deploy_drone', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role })
-        });
+            body: JSON.stringify({
+                "status": "deployment_request_sent",
+                "payload": {
+                    "action": "DEPLOY_DRONE",
+                    "role": "attack",
+                    "target_id": target_id,
+                    "timestamp": new Date()
+                }
+            })
+        })
 
         if (!response.ok) throw new Error('Data Team API failed to process deployment');
 
