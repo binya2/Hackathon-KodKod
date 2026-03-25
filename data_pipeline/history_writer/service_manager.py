@@ -14,12 +14,12 @@ def run_service():
                     continue
 
                 buffer.append(message)
-                
+
                 if len(buffer) >= 10:
                     print(f"[Service Manager] Buffer full ({len(buffer)}). Flushing to DB...")
                     insert_state_batch(buffer)
                     buffer.clear()
-                    
+
             except Exception as exc:
                 print(f"[Service Manager] Message handling error: {exc}")
     except Exception as exc:
