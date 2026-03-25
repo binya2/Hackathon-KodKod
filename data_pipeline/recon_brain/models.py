@@ -1,14 +1,11 @@
 from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
 # %% Models Definition (Decoupled Copy)
-
 class GeoPoint(BaseModel):
     lat: float
     lon: float
@@ -31,7 +28,5 @@ class TargetTelemetry(BaseModel):
 
 class NavigationCommand(BaseModel):
     drone_id: str
-    target_lat: float
-    target_lon: float
-    target_alt: float
+    position: GeoPoint
     priority: int = 1
