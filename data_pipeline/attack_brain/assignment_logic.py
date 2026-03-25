@@ -1,0 +1,100 @@
+import asyncio
+import json
+import logging
+from aiokafka import AIOKafkaProducer
+
+from data_pipeline.shared_models import GeoPoint, DroneCommand
+from data_pipeline.attack_brain.state_manager import (
+    get_active_attack_drones,
+    get_target,
+    get_drones_on_target,
+    update_drone_telemetry,
+)
+
+logger = logging.getLogger(__name__)
+
+import math
+
+ALT_SEPARATION = 20.0
+# Standoff radius: ~15 meters in degrees
+STANDOFF_RADIUS = 0.00015
+
+
+async def assignment_loop(producer: AIOKafkaProducer):
+    """Continuously evaluates drone positions relative to their assigned targets."""
+    while True:
+        active_attack_drones = [d for d in get_active_attack_drones() if d.assigned_target_id]
+
+        for drone in active_attack_drones:
+            await _process_drone_assignment(drone, producer)
+
+        await asyncio.sleep(2.0)
+
+
+async def _process_drone_assignment(drone, producer: AIOKafkaProducer):
+    target = get_target(drone.assigned_target_id)
+    
+    if not target or target.health <= 0:
+        await _recall_drone(drone.drone_id, producer)
+        return
+
+    # Skip updates if drone is attacking
+    if drone.flight_status == "ATTACKING":
+        return
+
+    # Check for empty ammo and replace
+    if drone.role == "attack" and drone.weapons_count == 0:
+        logger.info(f"[AMMO] Drone {drone.drone_id} out of ammo. Replacing...")
+        
+        # Mark as returning locally to free up slot immediately
+        drone.flight_status = "RETURNING"
+        update_drone_telemetry(drone)
+
+        await _recall_drone(drone.drone_id, producer)
+        await _request_replacement(drone.assigned_target_id, producer)
+        return
+
+    await _send_drone_waypoint(drone, target, producer)
+
+
+async def _request_replacement(target_id: str, producer: AIOKafkaProducer):
+    deploy_cmd = {
+        "action": "DEPLOY_DRONE",
+        "role": "attack",
+        "target_id": target_id
+    }
+    await producer.send_and_wait("commands.deployment", json.dumps(deploy_cmd).encode("utf-8"))
+
+
+async def _recall_drone(drone_id: str, producer: AIOKafkaProducer):
+    recall_cmd = {
+        "drone_id": drone_id,
+        "action": "RECALL_DRONE"
+    }
+    await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
+
+
+async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
+    drones_on_target = get_drones_on_target(drone.assigned_target_id)
+    
+    try:
+        index = drones_on_target.index(drone)
+    except ValueError:
+        index = 0
+
+    waypoint = _calculate_waypoint(target.position, index)
+    cmd = DroneCommand(drone_id=drone.drone_id, position=waypoint)
+    await producer.send_and_wait("commands.drones", cmd.model_dump_json().encode("utf-8"))
+
+
+def _calculate_waypoint(target_pos, index: int) -> GeoPoint:
+    # Circle the target at 15m radius
+    angle = index * (2 * math.pi / 5)
+    offset_lat = STANDOFF_RADIUS * math.cos(angle)
+    offset_lon = STANDOFF_RADIUS * math.sin(angle)
+
+    return GeoPoint(
+        lat=target_pos.lat + offset_lat,
+        lon=target_pos.lon + offset_lon,
+        alt=150.0 + (index * ALT_SEPARATION)
+    )

@@ -37,6 +37,7 @@ class DroneTelemetry(BaseModel):
     velocity: float
     heading: float
     battery_percent: float
+    weapons_count: int = 0
     flight_status: str = "SLEEP"
     assigned_target_id: Optional[str] = None
 

@@ -1,39 +1,40 @@
 import time
-from db_crud import insert_state_batch
-from kafka_operations import stream_messages
+from kafka_service import create_history_consumer, poll_and_decode_messages
+from db_service import archive_state_batch
 
 
-# %% Service Management
-def run_service():
-    print("[Service Manager] History & Archive Service (Buffered) is starting...")
-    buffer = []
-    
-    # 5 seconds flush timer
-    FLUSH_TIMEOUT_SECONDS = 5.0
-    last_flush_time = time.time()
+class HistoryService:
+    def __init__(self, buffer_size: int = 10, flush_interval: float = 5.0):
+        self.buffer = []
+        self.buffer_size = buffer_size
+        self.flush_interval = flush_interval
+        self.last_flush_time = time.time()
+        self.consumer = create_history_consumer()
 
-    try:
-        for message in stream_messages():
-            current_time = time.time()
-            
-            # Message will be None if the poll timed out (1 second)
-            if message is not None:
-                if isinstance(message, dict):
-                    buffer.append(message)
-                else:
-                    print(f"[Service Manager] Invalid message type {type(message)}, skipping.")
+    def run(self):
+        print("[History] Service started.")
+        try:
+            while True:
+                message = poll_and_decode_messages(self.consumer)
+                if message:
+                    self.buffer.append(message)
+                
+                if self._should_flush():
+                    self._flush_buffer()
+        finally:
+            self.consumer.close()
 
-            # Flush condition: Buffer is full OR timeout has passed
-            is_full = len(buffer) >= 10
-            is_timeout = (current_time - last_flush_time) >= FLUSH_TIMEOUT_SECONDS
-            
-            if buffer and (is_full or is_timeout):
-                reason = "full" if is_full else "timeout"
-                print(f"[Service Manager] Buffer {reason} ({len(buffer)}). Flushing to DB...")
-                insert_state_batch(buffer)
-                buffer.clear()
-                last_flush_time = current_time
+    def _should_flush(self):
+        is_full = len(self.buffer) >= self.buffer_size
+        is_timeout = (time.time() - self.last_flush_time) >= self.flush_interval
+        return self.buffer and (is_full or is_timeout)
 
-    except Exception as exc:
-        print(f"[Service Manager] Service loop stopped due to error: {exc}")
-        raise
+    def _flush_buffer(self):
+        archive_state_batch(self.buffer)
+        self.buffer.clear()
+        self.last_flush_time = time.time()
+
+
+def run_history_service():
+    service = HistoryService()
+    service.run()
