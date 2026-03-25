@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import AttackPanel from "./componentas/attackPanel";
 import VideoPanel from "./componentas/videoPanel";
 import "./App.css"
+import ExplosionMarker from "./componentas/explosionMarker";
 
 // const WS_URL = "ws://localhost:8000/ws";
 
@@ -17,10 +18,11 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function App() {
+  const [explosionPos, setExplosionPos] = useState(null);
   const [data, setData] = useState(null);
   const [manualDrone, setManualDrone] = useState(null);
   const handleEngage = async (droneId) => {
-    await fetch("http://localhost:8000/engage", {
+    const res = await fetch("http://localhost:8000/engage", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -31,6 +33,13 @@ export default function App() {
         drone_id: droneId,
       }),
     });
+    if (res.ok) {
+      setExplosionPos({
+        lat: data.target_data.location.lat,
+        lon: data.target_data.location.lon
+      });
+      setTimeout(() => setExplosionPos(null), 2000);
+    }
   };
   const handleResumeAuto = async (droneId) => {
     await fetch("http://localhost:8000/resume_auto", {
@@ -41,8 +50,9 @@ export default function App() {
         drone_id: droneId,
       }),
     });
-    setManualDrone(null); 
+    setManualDrone(null);
   };
+
   // useEffect(() => {
   //   const ws = new WebSocket(WS_URL);
 
@@ -95,30 +105,32 @@ export default function App() {
   return (
     <div className="h-screen w-screen" style={{ position: "relative", height: "100vh", width: "100%" }}>
       {manualDrone && (
-  <button 
-    onClick={() => handleResumeAuto(manualDrone.drone_id)}
-    style={{
-      position: "absolute",
-      top: "20px",
-      left: "50%",
-      transform: "translateX(-50%)",
-      zIndex: 1000,
-      backgroundColor: "#ff4d4d",
-      color: "white",
-      padding: "10px 20px",
-      borderRadius: "5px",
-      border: "none",
-      cursor: "pointer",
-      fontWeight: "bold"
-    }}
-  >AUTO
-  </button>
-)}
+        <button
+          onClick={() => handleResumeAuto(manualDrone.drone_id)}
+          style={{
+            position: "absolute",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            backgroundColor: "#ff4d4d",
+            color: "white",
+            padding: "10px 20px",
+            borderRadius: "5px",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+        >AUTO
+        </button>
+      )}
       <MapView
         data={data}
         manualDrone={manualDrone}
         setManualDrone={setManualDrone}
-      />
+      >
+        {explosionPos && <ExplosionMarker position={explosionPos} />}
+      </MapView>
       <AttackPanel
         squads={data?.attack_data?.squads}
         onEngage={handleEngage}

@@ -5,7 +5,7 @@ export default function AttackPanel({ squads, onEngage }) {
     if (!squads) return null;
 
     return (
-        <div style={{ position: "absolute", right: "60px", top: "40px", background: "white", padding: 10, zIndex: 9999, width: "180px", maxWidth: "90vw", boxSizing: "border-box" }}>
+        <div style={{ position: "absolute", right: "10px", top: "10px", background: "white", padding: 10, zIndex: 9999, width: "180px", maxWidth: "90vw", boxSizing: "border-box" }}>
             <h3>Attack Panel</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 {squads.map((squad) =>
