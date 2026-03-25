@@ -24,26 +24,37 @@ _targets_registry = {}
 
 async def kafka_consumer_task():
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    
+    # We remove value_deserializer because msg.value will be bytes. We handle it explicitly.
     consumer = AIOKafkaConsumer(
         "telemetry.raw", "target.raw",
         bootstrap_servers=bootstrap_servers,
-        group_id="state_aggregator_group",
-        value_deserializer=lambda m: json.loads(m.decode("utf-8"))
+        group_id="state_aggregator_group"
     )
 
     await consumer.start()
     try:
         async for msg in consumer:
+            if not msg.value:
+                continue
+                
+            try:
+                # Standardized JSON decoding
+                raw_data = json.loads(msg.value.decode("utf-8"))
+            except Exception as e:
+                logger.error(f"Error decoding JSON message: {e}")
+                continue
+                
             if msg.topic == "telemetry.raw":
                 try:
-                    tel = DroneTelemetry(**msg.value)
+                    tel = DroneTelemetry(**raw_data)
                     _drones_registry[tel.drone_id] = tel
                 except Exception as e:
                     logger.error(f"Error parsing telemetry: {e}")
 
             elif msg.topic == "target.raw":
                 try:
-                    tgt = TargetTelemetry(**msg.value)
+                    tgt = TargetTelemetry(**raw_data)
                     _targets_registry[tgt.target_id] = tgt
                 except Exception as e:
                     logger.error(f"Error parsing target: {e}")
@@ -53,13 +64,13 @@ async def kafka_consumer_task():
 
             # Recon data sorted: ACTIVE first
             _global_state.recon_data = sorted(
-                [d for d in _drones_registry.values() if d.role == DroneRole.RECON],
+                [d for d in _drones_registry.values() if d.role == DroneRole.RECON.value],
                 key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
             )
 
             # Attack data sorted: ACTIVE first
             _global_state.attack_data = sorted(
-                [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK],
+                [d for d in _drones_registry.values() if d.role == DroneRole.ATTACK.value],
                 key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
             )
 
@@ -135,7 +146,7 @@ if __name__ == "__main__":
         target_data=[
             TargetTelemetry(
                 target_id="TGT_001",
-                target_type=TargetType.VEHICLE,
+                target_type=TargetType.VEHICLE.value,
                 position=GeoPoint(lat=32.1, lon=34.8),
                 confidence=0.99
             )
@@ -144,7 +155,7 @@ if __name__ == "__main__":
         recon_data=[
             DroneTelemetry(
                 drone_id="RECON_1",
-                role=DroneRole.RECON,
+                role=DroneRole.RECON.value,
                 position=GeoPoint(lat=32.11, lon=34.81, alt=150.0),
                 velocity=10.0,
                 heading=0.0,

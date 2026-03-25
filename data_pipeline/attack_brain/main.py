@@ -27,6 +27,8 @@ drones_registry = {}  # drone_id -> DroneTelemetry
 async def process_target_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
+            if not msg.value:
+                continue
             raw_data = json.loads(msg.value.decode("utf-8"))
             target = TargetTelemetry.model_validate(raw_data)
             targets[target.target_id] = target
@@ -37,6 +39,8 @@ async def process_target_stream(consumer: AsyncIterable):
 async def process_telemetry_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
+            if not msg.value:
+                continue
             raw_data = json.loads(msg.value.decode("utf-8"))
             telemetry = DroneTelemetry.model_validate(raw_data)
             drones_registry[telemetry.drone_id] = telemetry
@@ -47,6 +51,8 @@ async def process_telemetry_stream(consumer: AsyncIterable):
 async def process_deployment_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
+            if not msg.value:
+                continue
             raw_data = json.loads(msg.value.decode("utf-8"))
             role = raw_data.get("role")
             target_id = raw_data.get("target_id")

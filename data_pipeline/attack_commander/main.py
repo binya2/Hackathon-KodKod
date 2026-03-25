@@ -1,5 +1,6 @@
 import json
 import uuid
+import contextlib
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -11,7 +12,14 @@ from models import (
 )
 
 # --- App Initialization ---
-app = FastAPI(title="Attack Commander Service")
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # Shutdown logic
+    print("Flushing Kafka producer on shutdown...")
+    producer.flush()
+
+app = FastAPI(title="Attack Commander Service", lifespan=lifespan)
 
 # --- Constants ---
 TOPIC_COMMANDS = "commands.attack"
@@ -45,7 +53,7 @@ async def engage(req: EngageRequest):
             value=json.dumps(payload),
             callback=delivery_report
         )
-        producer.flush(1.0)
+        producer.poll(0)
         return {"status": "command_sent", "payload": payload}
     except HTTPException:
         raise
@@ -74,7 +82,7 @@ async def deploy_drone(req: DeployRequest):
             value=json.dumps(payload),
             callback=delivery_report
         )
-        producer.flush(1.0)
+        producer.poll(0)
         return {"status": "deployment_request_sent", "payload": payload}
     except HTTPException:
         raise
@@ -142,7 +150,7 @@ async def new_target(req: NewTargetRequest):
                 callback=delivery_report
             )
 
-        producer.flush(1.0)
+        producer.poll(0)
         log_to_kafka("INFO", f"Successfully spawned target {target_id} and deployed swarm.")
         return {
             "status": "target_spawned_and_swarm_deployed",
@@ -165,7 +173,7 @@ async def recall_drone(req: RecallRequest):
         "timestamp": iso8601_utc_now()
     }
     producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
-    producer.flush(1.0)
+    producer.poll(0)
     return {"status": "recall_sent", "payload": payload}
 
 
@@ -178,7 +186,7 @@ async def manual_move(req: ManualMoveRequest):
         "timestamp": iso8601_utc_now()
     }
     producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
-    producer.flush(1.0)
+    producer.poll(0)
     return {"status": "manual_move_sent", "payload": payload}
 
 
@@ -190,7 +198,7 @@ async def resume_auto(req: ResumeAutoRequest):
         "timestamp": iso8601_utc_now()
     }
     producer.produce(TOPIC_DRONES, key=req.drone_id, value=json.dumps(payload), callback=delivery_report)
-    producer.flush(1.0)
+    producer.poll(0)
     return {"status": "resume_auto_sent", "payload": payload}
 
 

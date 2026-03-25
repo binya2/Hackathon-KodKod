@@ -28,7 +28,10 @@ drones_registry = {}  # drone_id -> DroneTelemetry
 async def process_target_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
-            target = TargetTelemetry(**msg.value)
+            if not msg.value:
+                continue
+            raw_data = json.loads(msg.value.decode("utf-8"))
+            target = TargetTelemetry(**raw_data)
 
             # Find active recon drones assigned to THIS target
             active_recon = [d for d in drones_registry.values() if
@@ -49,8 +52,9 @@ async def process_target_stream(consumer: AsyncIterable, producer):
                     ),
                     priority=2
                 )
-                await producer.send_and_wait("commands.drones", nav_cmd.model_dump(mode='json'))
-                # logger.info(f"Recon Brain: Tracking Target {target.target_id} with {drone.drone_id}")
+                
+                # Make sure payload is JSON encoded properly
+                await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
 
         except Exception as e:
             logger.error(f"Error processing target in Recon Brain: {e}")
@@ -59,7 +63,10 @@ async def process_target_stream(consumer: AsyncIterable, producer):
 async def process_telemetry_stream(consumer: AsyncIterable):
     async for msg in consumer:
         try:
-            tel = DroneTelemetry.model_validate(msg.value)
+            if not msg.value:
+                continue
+            raw_data = json.loads(msg.value.decode("utf-8"))
+            tel = DroneTelemetry.model_validate(raw_data)
             drones_registry[tel.drone_id] = tel
         except Exception as e:
             logger.error(f"Error parsing telemetry: {e}")
@@ -68,6 +75,8 @@ async def process_telemetry_stream(consumer: AsyncIterable):
 async def process_deployment_stream(consumer: AsyncIterable, producer):
     async for msg in consumer:
         try:
+            if not msg.value:
+                continue
             raw_data = json.loads(msg.value.decode("utf-8"))
             role = raw_data.get("role")
             target_id = raw_data.get("target_id")
@@ -110,22 +119,20 @@ async def run_recon_brain():
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
     producer = AIOKafkaProducer(
-        bootstrap_servers=bootstrap_servers,
-        value_serializer=lambda v: json.dumps(v).encode("utf-8") if not isinstance(v, bytes) else v
+        bootstrap_servers=bootstrap_servers
     )
 
+    # Removed value_deserializer to standardize bytes parsing inside loops
     target_consumer = AIOKafkaConsumer(
         "target.raw",
         bootstrap_servers=bootstrap_servers,
-        group_id="recon_brain_group",
-        value_deserializer=lambda m: json.loads(m.decode("utf-8"))
+        group_id="recon_brain_group"
     )
 
     telemetry_consumer = AIOKafkaConsumer(
         "telemetry.raw",
         bootstrap_servers=bootstrap_servers,
-        group_id="recon_brain_telemetry",
-        value_deserializer=lambda m: json.loads(m.decode("utf-8"))
+        group_id="recon_brain_telemetry"
     )
 
     deploy_consumer = AIOKafkaConsumer(
