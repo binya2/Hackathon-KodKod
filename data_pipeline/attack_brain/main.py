@@ -70,12 +70,15 @@ async def process_deployment_stream(consumer: AsyncIterable, producer):
                 ]
                 if sleeping_drones:
                     target_drone = sleeping_drones[0]
+                    target_drone.flight_status = "ACTIVE"
+                    target_drone.assigned_target_id = target_id
                     wake_cmd = {
                         "drone_id": target_drone.drone_id,
                         "action": "WAKE_UP",
                         "target_id": target_id
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
+                    await producer.send_and_wait("telemetry.raw", target_drone.model_dump_json().encode("utf-8"))
                     logger.info(f"[DEPLOY] Waking up {target_drone.drone_id} for target {target_id}")
                 else:
                     logger.warning("[DEPLOY] No sleeping attack drones available.")
@@ -101,7 +104,12 @@ async def assignment_loop(producer):
 
         for drone in active_attack_drones:
             target = targets.get(drone.assigned_target_id)
-            if not target:
+            if not target or target.health <= 0:
+                recall_cmd = {
+                    "drone_id": drone.drone_id,
+                    "action": "RECALL_DRONE"
+                }
+                await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
                 continue
 
             drones_on_target = [d for d in active_attack_drones if d.assigned_target_id == drone.assigned_target_id]

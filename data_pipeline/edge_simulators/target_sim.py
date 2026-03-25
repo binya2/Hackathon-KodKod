@@ -16,6 +16,7 @@ from data_pipeline.shared_models import GeoPoint, TargetTelemetry, TargetType
 # %% State Management
 class TargetState:
     def __init__(self):
+        self.target_id: str = "TGT-1"
         self.base_lat: float = 31.705
         self.base_lon: float = 35.205
         self.health: float = 100.0
@@ -56,6 +57,7 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
 
     elif topic == "events.intel":
         if event_data.get("action") == "SPAWN_TARGET":
+            state.target_id = event_data.get("target_id", "TGT-1")
             state.base_lat = event_data.get("lat")
             state.base_lon = event_data.get("lon")
             state.health = 100.0
@@ -64,7 +66,7 @@ def process_target_event(event_data: Dict[str, Any], topic: str, state: TargetSt
 
             # Zero-latency UI update: produce first telemetry immediately
             initial_telemetry = TargetTelemetry(
-                target_id="TGT-1",
+                target_id=state.target_id,
                 target_type=TargetType.VEHICLE.value,
                 position=GeoPoint(lat=state.base_lat, lon=state.base_lon),
                 confidence=0.95,
@@ -100,7 +102,7 @@ def main():
                 lon = state.base_lon + random.uniform(-0.0001, 0.0001)
 
                 telemetry = TargetTelemetry(
-                    target_id="TGT-1",
+                    target_id=state.target_id,
                     target_type=TargetType.VEHICLE.value,
                     position=GeoPoint(lat=lat, lon=lon),
                     confidence=0.95 if state.health > 0 else 0.0,

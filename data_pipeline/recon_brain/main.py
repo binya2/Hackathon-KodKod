@@ -90,12 +90,15 @@ async def process_deployment_stream(consumer: AsyncIterable, producer):
                                   d.role == "recon" and d.flight_status == "SLEEP"]
                 if sleeping_recon:
                     target_drone = sleeping_recon[0]
+                    target_drone.flight_status = "ACTIVE"
+                    target_drone.assigned_target_id = target_id
                     wake_cmd = {
                         "drone_id": target_drone.drone_id,
                         "action": "WAKE_UP",
                         "target_id": target_id
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
+                    await producer.send_and_wait("telemetry.raw", target_drone.model_dump_json().encode("utf-8"))
                     logger.info(f"[DEPLOY] Waking up {target_drone.drone_id} for target {target_id}")
                 else:
                     logger.warning("[DEPLOY] No sleeping recon drones available.")

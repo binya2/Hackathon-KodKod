@@ -5,7 +5,7 @@
 # ==========================================
 # 1. שכבת הנתונים (State Aggregator)
 # ==========================================
-### קבלת תמונת מצב עולמית (World State) - משיכה בודדת
+### קבלת תמונת מצב  - משיכה בודדת
 # הערה לפולסטאק: לזרימת נתונים חלקה (10Hz),
 # יש להתחבר ל-WebSocket בכתובת: ws://localhost:8000/ws
 GET {{aggregator_url}}/api/state
@@ -35,7 +35,7 @@ Content-Type: application/json
 
 {
     "role": "attack",
-    "target_id": "TGT-1"
+    "target_id": "TGT-FF73"
 }
 
 ### החזרת רחפן לבסיס (Recall / Return to Base)

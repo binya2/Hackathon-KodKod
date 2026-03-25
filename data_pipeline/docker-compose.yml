@@ -24,12 +24,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+#    volumes:
+#      - kafka_data:/var/lib/kafka/data
 
   mongo:
     image: mongo:7
     container_name: mongodb
     ports:
       - "27017:27017"
+#    volumes:
+#      - mongo_data:/data/db
 
   state_aggregator:
     build: 
@@ -89,6 +93,8 @@ services:
     build: 
       context: .
       dockerfile: ./attack_commander/Dockerfile
+    ports:
+      - "8001:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -119,3 +125,7 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
       - KAFKA_TOPIC=aggregated-state-topic
       - KAFKA_GROUP_ID=history-archive-group
+
+#volumes:
+#  kafka_data:
+#  mongo_data:

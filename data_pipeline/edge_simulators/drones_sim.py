@@ -77,8 +77,12 @@ class Drone:
                 self.alt -= step * 10
 
         self.battery -= battery_drain_per_sec * dt
-        if self.battery < 0:
+        if self.battery <= 0:
             self.battery = 0
+            self.flight_status = "CRASHED"
+            if self.alt > 0:
+                self.alt = max(0.0, self.alt - (step * 20))
+            return
 
         self.heading = (self.heading + random.uniform(-5, 5)) % 360
 

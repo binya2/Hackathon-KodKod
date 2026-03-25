@@ -154,6 +154,7 @@ async def new_target(req: NewTargetRequest):
         target_id = f"TGT-{str(uuid.uuid4())[:4].upper()}"
         intel_payload = {
             "action": "SPAWN_TARGET",
+            "target_id": target_id,
             "lat": req.lat,
             "lon": req.lon,
             "timestamp": iso8601_utc_now()
