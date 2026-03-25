@@ -35,7 +35,7 @@ Content-Type: application/json
 
 {
     "role": "attack",
-    "target_id": "TGT-FF73"
+    "target_id": "TGT-C9DC"
 }
 
 ### החזרת רחפן לבסיס (Recall / Return to Base)
@@ -44,7 +44,7 @@ POST {{commander_url}}/recall_drone
 Content-Type: application/json
 
 {
-    "drone_id": "DRN-1"
+    "drone_id": "DRN-10"
 }
 
 

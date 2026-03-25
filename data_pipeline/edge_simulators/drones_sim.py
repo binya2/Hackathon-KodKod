@@ -56,25 +56,8 @@ class Drone:
         if self.flight_status == "SLEEP":
             return
 
-        # Simple movement towards target
-        step = 0.0001 * dt
-        if abs(self.lat - self.target_lat) > step:
-            if self.lat < self.target_lat:
-                self.lat += step
-            else:
-                self.lat -= step
-
-        if abs(self.lon - self.target_lon) > step:
-            if self.lon < self.target_lon:
-                self.lon += step
-            else:
-                self.lon -= step
-
-        if abs(self.alt - self.target_alt) > step * 10:
-            if self.alt < self.target_alt:
-                self.alt += step * 10
-            else:
-                self.alt -= step * 10
+        speed_multiplier = 3.0 if self.flight_status == "RETURNING" else 1.0
+        step = 0.0001 * dt * speed_multiplier
 
         self.battery -= battery_drain_per_sec * dt
         if self.battery <= 0:
@@ -84,15 +67,27 @@ class Drone:
                 self.alt = max(0.0, self.alt - (step * 20))
             return
 
+        if abs(self.lat - self.target_lat) > step:
+            self.lat += step if self.lat < self.target_lat else -step
+
+        if abs(self.lon - self.target_lon) > step:
+            self.lon += step if self.lon < self.target_lon else -step
+
+        alt_step = step * 10
+        if abs(self.alt - self.target_alt) > alt_step:
+            self.alt += alt_step if self.alt < self.target_alt else -alt_step
+
         self.heading = (self.heading + random.uniform(-5, 5)) % 360
 
-        # RTB check
         if self.flight_status == "RETURNING":
             dist = math.sqrt((self.lat - BASE_LAT) ** 2 + (self.lon - BASE_LON) ** 2)
+
             if dist < 0.005:
-                print(f"[SIM] {self.drone_id} arrived at base. Sleeping.")
+                print(f"[SIM] {self.drone_id} arrived at base. Entering SLEEP mode.")
+
                 self.flight_status = "SLEEP"
                 self.assigned_target_id = None
+
                 self.lat = BASE_LAT
                 self.lon = BASE_LON
                 self.alt = 0.0
