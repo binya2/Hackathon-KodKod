@@ -106,3 +106,43 @@ export const getCurrentState = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
+export const handleDeployDrone = async (req, res) => {
+    const { role } = req.body;
+
+    if (!role || (role !== 'recon' && role !== 'attack')) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Invalid or missing role. Must be "recon" or "attack".'
+        });
+    }
+
+    try {
+        console.log(`🚀 [DEPLOY COMMAND] Requesting ${role} drone deployment...`);
+
+        const response = await fetch('http://localhost:8001/deploy_drone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role })
+        });
+
+        if (!response.ok) throw new Error('Data Team API failed to process deployment');
+
+        const data = await response.json();
+
+        return res.status(200).json({
+            status: "deployment_request_sent",
+            payload: {
+                action: "DEPLOY_DRONE",
+                role: role,
+                timestamp: new Date().toISOString()
+            },
+            data_team_response: data
+        });
+
+    } catch (error) {
+        console.error('Deployment Error:', error.message);
+        return res.status(500).json({ status: 'error', message: 'Internal server error during deployment' });
+    }
+};
