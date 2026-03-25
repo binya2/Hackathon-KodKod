@@ -47,14 +47,14 @@ async def kafka_consumer_task():
 
             if msg.topic == "telemetry.raw":
                 try:
-                    tel = DroneTelemetry(**raw_data)
+                    tel = DroneTelemetry.model_validate(raw_data)
                     _drones_registry[tel.drone_id] = tel
                 except Exception as e:
                     logger.error(f"Error parsing telemetry: {e}")
 
             elif msg.topic == "target.raw":
                 try:
-                    tgt = TargetTelemetry(**raw_data)
+                    tgt = TargetTelemetry.model_validate(raw_data)
                     _targets_registry[tgt.target_id] = tgt
                 except Exception as e:
                     logger.error(f"Error parsing target: {e}")

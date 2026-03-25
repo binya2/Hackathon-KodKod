@@ -89,6 +89,8 @@ class Drone:
                 print(f"[SIM] {self.drone_id} arrived at base. Sleeping.")
                 self.flight_status = "SLEEP"
                 self.assigned_target_id = None
+                self.lat = BASE_LAT
+                self.lon = BASE_LON
                 self.alt = 0.0
                 self.target_alt = 0.0
 

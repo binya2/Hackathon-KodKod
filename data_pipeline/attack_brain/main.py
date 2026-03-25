@@ -15,7 +15,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("attack-brain")
 
 # %% Deployment Environment Detection
-# Detect if running in Kubernetes to adjust scaling behavior
 RUNNING_IN_K8S = os.environ.get("K8S_DEPLOYMENT", "false").lower() == "true"
 
 # %% Global State
@@ -65,7 +64,6 @@ async def process_deployment_stream(consumer: AsyncIterable, producer):
             ]
 
             if len(active_attack_drones) < 5:
-                # Warm Pool: Find and wake a sleeping drone
                 sleeping_drones = [
                     d for d in drones_registry.values()
                     if d.role == "attack" and d.flight_status == "SLEEP"
@@ -82,14 +80,11 @@ async def process_deployment_stream(consumer: AsyncIterable, producer):
                 else:
                     logger.warning("[DEPLOY] No sleeping attack drones available.")
             else:
-                # Capacity reached: Handle based on environment
                 if not RUNNING_IN_K8S:
-                    # Docker Compose: Manual scaling by re-producing to Kafka
                     logger.info("[DEPLOY] Capacity full (5). Re-producing for other replicas.")
                     new_key = str(uuid.uuid4()).encode("utf-8")
                     await producer.send_and_wait("commands.deployment", msg.value, key=new_key)
                 else:
-                    # Kubernetes: Rely on HPA and do NOT re-produce to avoid loops
                     logger.info("[K8S SCALE] Capacity full. Relying on K8S HPA to scale pods...")
 
         except Exception as e:
@@ -99,7 +94,6 @@ async def process_deployment_stream(consumer: AsyncIterable, producer):
 async def assignment_loop(producer):
     alt_separation = 20.0
     while True:
-        # Filter active attack drones that have an assigned target
         active_attack_drones = [
             d for d in drones_registry.values()
             if d.role == "attack" and d.flight_status == "ACTIVE" and d.assigned_target_id
@@ -110,7 +104,6 @@ async def assignment_loop(producer):
             if not target:
                 continue
 
-            # Calculate index of drone among those assigned to the same target for separation
             drones_on_target = [d for d in active_attack_drones if d.assigned_target_id == drone.assigned_target_id]
             try:
                 i = drones_on_target.index(drone)
