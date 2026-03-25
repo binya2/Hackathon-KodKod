@@ -110,7 +110,7 @@ def main():
                 producer.produce("target.raw", key="TGT-1", value=telemetry.model_dump_json())
                 producer.poll(0)
             
-            time.sleep(1.0)
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:

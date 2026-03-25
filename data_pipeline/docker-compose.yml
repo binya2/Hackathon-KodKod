@@ -76,3 +76,20 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+
+  mongo:
+    image: mongo:7
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+
+  history_archive_service:
+    build: ./history_writer
+    depends_on:
+      - mongo
+      - kafka
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - KAFKA_TOPIC=aggregated-state-topic
+      - KAFKA_GROUP_ID=history-archive-group

@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from aiokafka import AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from fastapi import FastAPI
 
 from models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole
@@ -69,19 +69,36 @@ async def kafka_consumer_task():
         await consumer.stop()
 
 
+# %% Kafka Publisher Task Logic
+
+async def state_publisher_task():
+    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    producer = AIOKafkaProducer(bootstrap_servers=bootstrap_servers)
+    await producer.start()
+    try:
+        while True:
+            payload = _global_state.model_dump_json()
+            await producer.send_and_wait("aggregated-state-topic", payload.encode("utf-8"))
+            await asyncio.sleep(0.1)
+    except asyncio.CancelledError:
+        logger.info("State publisher task cancelled.")
+    finally:
+        await producer.stop()
+
+
 # %% FastAPI App & Lifespan
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start Kafka consumer background task
-    task = asyncio.create_task(kafka_consumer_task())
+    # Startup: Start Kafka tasks
+    consumer_task = asyncio.create_task(kafka_consumer_task())
+    publisher_task = asyncio.create_task(state_publisher_task())
     yield
     # Shutdown
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        logger.info("Kafka consumer task stopped.")
+    consumer_task.cancel()
+    publisher_task.cancel()
+    await asyncio.gather(consumer_task, publisher_task, return_exceptions=True)
+    logger.info("Kafka tasks stopped.")
 
 
 app = FastAPI(title="State Aggregator API", lifespan=lifespan)

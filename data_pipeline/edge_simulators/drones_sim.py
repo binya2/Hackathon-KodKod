@@ -158,12 +158,12 @@ def main():
 
             # 2. Update and Produce Telemetry
             for d in drones:
-                d.tick(0.5, 0.05)
+                d.tick(0.1, 0.05)
                 telemetry = d.to_telemetry()
                 producer.produce("telemetry.raw", key=d.drone_id, value=telemetry.model_dump_json())
             
             producer.poll(0)
-            time.sleep(0.5)
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
