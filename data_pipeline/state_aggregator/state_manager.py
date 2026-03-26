@@ -16,8 +16,14 @@ async def update_drone_telemetry(telemetry: DroneTelemetry):
     if existing_json:
         try:
             existing_drone = DroneTelemetry.model_validate_json(existing_json)
-            # CRITICAL: Only update if the new telemetry is strictly newer than the one in Redis
-            if telemetry.timestamp <= existing_drone.timestamp:
+
+            # Convert both to UTC-aware datetimes
+            t_new = telemetry.timestamp.replace(tzinfo=timezone.utc) if telemetry.timestamp.tzinfo is None else telemetry.timestamp.astimezone(timezone.utc)
+            t_old = existing_drone.timestamp.replace(tzinfo=timezone.utc) if existing_drone.timestamp.tzinfo is None else existing_drone.timestamp.astimezone(timezone.utc)
+
+            # IF telemetry.timestamp <= existing_drone.timestamp, DROP the message
+            if t_new <= t_old:
+                logger.warning(f"Dropping stale telemetry for {telemetry.drone_id}")
                 return # Ignore older telemetry
         except Exception:
             pass # If parsing fails, proceed with update

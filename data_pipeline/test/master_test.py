@@ -59,10 +59,11 @@ class MasterTester:
 
     async def test_recon_first_rule(self):
         print("\n=== שלב 2: חוק 'תצפית תחילה' (Recon First) ===")
-        # נ"צ קרוב לבסיס אך דורש זמן טיסה קצר
-        resp = await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.805, "lon": 35.105})
+        # נ"צ רחוק מספיק למניעת נעילה מיידית
+        resp = await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.820, "lon": 35.120})
         if resp.status_code != 200: return None
 
+        await asyncio.sleep(2) # Allow system to process and drones to start moving
         target_id = resp.json()["target_id"]
         print(f"🎯 נוצרה מטרה {target_id}. מנסה לתקוף מיידית טרם הגעת תצפית...")
 
