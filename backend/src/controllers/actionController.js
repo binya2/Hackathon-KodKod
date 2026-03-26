@@ -1,189 +1,155 @@
-import State from '../models/stateModel.js';
-
-export const handleEngage = async (req, res) => {
-    const { action, target_id, drone_id } = req.body;
-
-    if (!action) return res.status(400).json({ status: 'error', message: 'Missing field: action' });
-    if (!target_id) return res.status(400).json({ status: 'error', message: 'Missing field: target_id' });
-    if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
+// 1. יצירת מטרה חדשה והזנקה אוטומטית (חדש!)
+export const handleNewTarget = async (req, res) => {
+    const { lat, lon } = req.body;
+    if (lat === undefined || lon === undefined) {
+        return res.status(400).json({ status: 'error', message: 'Missing lat or lon' });
+    }
 
     try {
-        console.log(`🚀 [ENGAGE COMMAND] Received at ${new Date().toISOString()}`);
-        console.log(`Target: ${target_id} | Drone: ${drone_id}`);
-
-        const response = await fetch('http://localhost:8001/engage', {
+        const response = await fetch('http://localhost:8001/new_target', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, target_id, drone_id })
+            body: JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) })
         });
-
-        if (!response.ok) throw new Error('Data Team API returned an error');
 
         const data = await response.json();
+        if (!response.ok) return res.status(response.status).json(data);
 
-        return res.status(200).json({
-            status: 'success',
-            message: `Engage command for ${drone_id} received and relayed to tactical engine`,
-            data: data,
-            timestamp: new Date().toISOString()
-        });
+        return res.status(200).json(data);
     } catch (error) {
-        console.error('Error:', error.message);
-        return res.status(500).json({ status: 'error', message: 'Failed to relay command' });
+        return res.status(500).json({ status: 'error', message: error.message });
     }
 };
 
-export const handleNavigate = async (req, res) => {
-    const { drone_id, lat, lon } = req.body;
-
-    if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
-    if (lat === undefined || lat === null) return res.status(400).json({ status: 'error', message: 'Missing field: lat' });
-    if (lon === undefined || lon === null) return res.status(400).json({ status: 'error', message: 'Missing field: lon' });
+// 2. פקודת אש (מעודכן)
+export const handleEngage = async (req, res) => {
+    const { target_id, drone_id } = req.body;
+    // במסמך כתוב שזה חייב להיות "engage"
     try {
-        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
-        console.log(`Drone ID: ${drone_id} to Coordinates: ${lat}, ${lon}`);
+        const response = await fetch('http://localhost:8001/engage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: "engage",
+                target_id,
+                drone_id
+            })
+        });
 
+        const data = await response.json();
+        if (!response.ok) return res.status(response.status).json(data);
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+// 3. הזנקה ידנית (מעודכן - חייב target_id)
+export const handleDeployDrone = async (req, res) => {
+    const { role, target_id } = req.body;
+    try {
+        const response = await fetch('http://localhost:8001/deploy_drone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, target_id })
+        });
+
+        const data = await response.json();
+        if (!response.ok) return res.status(response.status).json(data);
+
+        return res.status(200).json(data);
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+// 4. החזרה לבסיס (חדש!)
+export const handleRecall = async (req, res) => {
+    const { drone_id } = req.body;
+    try {
+        const response = await fetch('http://localhost:8001/recall_drone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ drone_id })
+        });
+        const data = await response.json();
+        return res.status(response.status).json(data);
+    } catch (error) {
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+// 5. השתלטות ידנית (Manual Move)
+export const handleManualMove = async (req, res) => {
+    const { drone_id, lat, lon, alt = 150.0 } = req.body;
+    try {
         const response = await fetch('http://localhost:8001/manual_move', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                drone_id: drone_id,
-                "lat": lat,
-                "lon": lon,
-                "alt": 150.0
+                drone_id,
+                lat: parseFloat(lat),
+                lon: parseFloat(lon),
+                alt: parseFloat(alt)
             })
         });
-
-        if (!response.ok) throw new Error('Data Team API returned an error');
-
         const data = await response.json();
-
-
-        return res.status(200).json({
-            status: 'success',
-            message: 'Navigation update successful',
-            data: data,
-            coordinates: { lat, lon }
-        });
+        return res.status(response.status).json(data);
     } catch (error) {
-        console.error('Navigation Relay Error:', error.message);
-        return res.status(500).json({ status: 'error', message: 'Internal server error during navigation' });
+        return res.status(500).json({ status: 'error', message: error.message });
     }
 };
 
-export const handleAuto = async (req, res) => {
+// 6. חזרה לאוטומטי
+export const handleResumeAuto = async (req, res) => {
     const { drone_id } = req.body;
-    if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
-
-        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
-        console.log(`Drone ID: ${drone_id}`);
-
+    try {
         const response = await fetch('http://localhost:8001/resume_auto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-
-                "drone_id": drone_id,
-
-            })
+            body: JSON.stringify({ drone_id })
         });
-
-        if (!response.ok) throw new Error('Data Team API returned an error');
-
         const data = await response.json();
-
-        return res.status(200).json({
-            status: 'success',
-            message: 'Navigation update successful',
-            data: data,
-                
-        });
-
-};
-
-export const getDroneHistory = async (req, res) => {
-    try {
-        const { droneId } = req.params;
-        const history = await State.find({ "recon_data.active_drone": droneId })
-            .sort({ timestamp: -1 })
-            .limit(40);
-
-        const path = history.map(item => ({
-            lat: item.recon_data.telemetry.lat,
-            lng: item.recon_data.telemetry.lon
-        }));
-
-        res.status(200).json(path.reverse());
+        return res.status(response.status).json(data);
     } catch (error) {
-        res.status(500).json({ status: 'error', message: error.message });
+        return res.status(500).json({ status: 'error', message: error.message });
     }
 };
 
-
+// GET STATE (Fallback)
 export const getCurrentState = async (req, res) => {
     try {
-        const response = await fetch('http://localhost:8000/api/state', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Data Team API returned an error ${error.message}`);
-        }
-
+        const response = await fetch('http://localhost:8000/api/state');
         const data = await response.json();
-
         res.status(200).json(data);
-
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ status: 'error', message: 'Data team server offline' });
     }
 };
 
+// שליפת היסטוריית מסלול - צביעת שובל ממוקד משימה
+export const getDroneHistory = async (req, res) => {
+    const { droneId, targetId } = req.params;
 
-export const handleDeployDrone = async (req, res) => {
-    const { role, target_id } = req.body;
-
-    if (!role || (role !== 'recon' && role !== 'attack')) {
-        return res.status(400).json({
-            status: 'error',
-            message: 'Invalid or missing role. Must be "recon" or "attack".'
-        });
+    if (!droneId || !targetId) {
+        return res.status(400).json({ status: 'error', message: 'Missing droneId or targetId' });
     }
 
     try {
-        console.log(`🚀 [DEPLOY COMMAND] Requesting ${role} drone deployment...`);
+        // פנייה לדאטא: "תביא לי את הנקודות של רחפן X רק כשהוא היה נעול על מטרה Y"
+        const response = await fetch(`http://localhost:8000/drone_history/${droneId}/${targetId}`);
 
-        const response = await fetch('http://localhost:8001/deploy_drone', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                "status": "deployment_request_sent",
-                "payload": {
-                    "action": "DEPLOY_DRONE",
-                    "role": "attack",
-                    "target_id": target_id,
-                    "timestamp": new Date()
-                }
-            })
-        })
+        if (!response.ok) {
+            return res.status(response.status).json({ message: "No history for this mission yet" });
+        }
 
-        if (!response.ok) throw new Error('Data Team API failed to process deployment');
-
-        const data = await response.json();
-
-        return res.status(200).json({
-            status: "deployment_request_sent",
-            payload: {
-                action: "DEPLOY_DRONE",
-                role: role,
-                timestamp: new Date().toISOString()
-            },
-            data_team_response: data
-        });
+        const path = await response.json();
+        // מחזירים מערך נקי: [ {lat, lon}, {lat, lon} ... ]
+        return res.status(200).json(path);
 
     } catch (error) {
-        console.error('Deployment Error:', error.message);
-        return res.status(500).json({ status: 'error', message: 'Internal server error during deployment' });
+        console.error("History Fetch Error:", error.message);
+        return res.status(500).json({ status: 'error', message: "Data Team history service offline" });
     }
 };
