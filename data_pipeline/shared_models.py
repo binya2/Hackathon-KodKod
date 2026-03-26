@@ -37,6 +37,7 @@ class DroneTelemetry(BaseModel):
     velocity: float
     heading: float
     battery_percent: float
+    weapons_count: int = 0
     flight_status: str = "SLEEP"
     assigned_target_id: Optional[str] = None
 
@@ -56,11 +57,13 @@ class NavigationCommand(BaseModel):
     drone_id: str
     position: GeoPoint
     priority: int = 1
+    flight_status: Optional[str] = None
 
 
 class DroneCommand(BaseModel):
     drone_id: str
     position: GeoPoint
+    flight_status: Optional[str] = None
 
 
 # %% State Aggregator Models

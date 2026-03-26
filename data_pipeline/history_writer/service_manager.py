@@ -1,39 +1,65 @@
-import time
-from db_crud import insert_state_batch
-from kafka_operations import stream_messages
+import asyncio
+import logging
+from datetime import datetime
+
+# Use relative imports when running as a package or direct imports when running as a script
+try:
+    from .kafka_service import create_history_consumer, poll_and_decode_messages
+    from .db_connection import get_collection
+except ImportError:
+    from kafka_service import create_history_consumer, poll_and_decode_messages
+    from db_connection import get_collection
+
+logger = logging.getLogger(__name__)
 
 
-# %% Service Management
-def run_service():
-    print("[Service Manager] History & Archive Service (Buffered) is starting...")
-    buffer = []
+async def run_history_ingestion():
+    """Background task to consume WorldState from Kafka and save flattened drone telemetry to MongoDB."""
+    consumer = create_history_consumer()
+    collection = get_collection("drone_telemetry_history")
     
-    # 5 seconds flush timer
-    FLUSH_TIMEOUT_SECONDS = 5.0
-    last_flush_time = time.time()
-
+    print("[History] Ingestion task started.")
     try:
-        for message in stream_messages():
-            current_time = time.time()
+        while True:
+            # poll_and_decode_messages is already using a timeout from confluent-kafka.
+            message = poll_and_decode_messages(consumer, timeout=0.1)
+            if message:
+                await process_world_state(message, collection)
             
-            # Message will be None if the poll timed out (1 second)
-            if message is not None:
-                if isinstance(message, dict):
-                    buffer.append(message)
-                else:
-                    print(f"[Service Manager] Invalid message type {type(message)}, skipping.")
+            await asyncio.sleep(0.01) # Yield to event loop
+    except asyncio.CancelledError:
+        print("[History] Ingestion task stopping...")
+    finally:
+        consumer.close()
 
-            # Flush condition: Buffer is full OR timeout has passed
-            is_full = len(buffer) >= 10
-            is_timeout = (current_time - last_flush_time) >= FLUSH_TIMEOUT_SECONDS
-            
-            if buffer and (is_full or is_timeout):
-                reason = "full" if is_full else "timeout"
-                print(f"[Service Manager] Buffer {reason} ({len(buffer)}). Flushing to DB...")
-                insert_state_batch(buffer)
-                buffer.clear()
-                last_flush_time = current_time
 
-    except Exception as exc:
-        print(f"[Service Manager] Service loop stopped due to error: {exc}")
-        raise
+async def process_world_state(state: dict, collection):
+    """Flattens WorldState into individual drone telemetry documents and saves them."""
+    drone_docs = []
+    
+    # Process recon_data
+    for d in state.get("recon_data", []):
+        doc = {
+            "drone_id": d.get("drone_id"),
+            "assigned_target_id": d.get("assigned_target_id"),
+            "position": d.get("position"),
+            "timestamp": d.get("timestamp")
+        }
+        drone_docs.append(doc)
+        
+    # Process attack_data
+    for d in state.get("attack_data", []):
+        doc = {
+            "drone_id": d.get("drone_id"),
+            "assigned_target_id": d.get("assigned_target_id"),
+            "position": d.get("position"),
+            "timestamp": d.get("timestamp")
+        }
+        drone_docs.append(doc)
+        
+    if drone_docs:
+        try:
+            # Use insert_many for efficiency
+            collection.insert_many(drone_docs)
+        except Exception as e:
+            logger.error(f"[History] Failed to insert drone telemetry: {e}")
