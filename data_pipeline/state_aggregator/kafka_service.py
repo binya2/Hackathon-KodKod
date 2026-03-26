@@ -33,7 +33,7 @@ async def process_telemetry_message(raw_data: dict):
     """Parses and updates drone telemetry from raw message data."""
     try:
         tel = DroneTelemetry.model_validate(raw_data)
-        update_drone_telemetry(tel)
+        await update_drone_telemetry(tel)
     except Exception:
         logger.exception("Error parsing telemetry message")
 
@@ -42,7 +42,7 @@ async def process_target_message(raw_data: dict):
     """Parses and updates target telemetry from raw message data."""
     try:
         tgt = TargetTelemetry.model_validate(raw_data)
-        update_target_telemetry(tgt)
+        await update_target_telemetry(tgt)
     except Exception:
         logger.exception("Error parsing target message")
 
@@ -77,7 +77,7 @@ async def state_publisher_task():
     await producer.start()
     try:
         while True:
-            current_state = get_world_state()
+            current_state = await get_world_state()
             payload = current_state.model_dump_json()
             await producer.send_and_wait("aggregated-state-topic", payload.encode("utf-8"))
             await asyncio.sleep(0.1)

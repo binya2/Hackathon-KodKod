@@ -35,6 +35,12 @@ services:
 #    volumes:
 #      - mongo_data:/data/db
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
   state_aggregator:
     build: 
       context: .
@@ -43,9 +49,12 @@ services:
       - "8000:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   recon_brain:
     build: 
@@ -53,9 +62,12 @@ services:
       dockerfile: ./recon_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   attack_brain:
     build: 
@@ -63,9 +75,12 @@ services:
       dockerfile: ./attack_brain/Dockerfile
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   drone_sim:
     build: 
@@ -97,9 +112,12 @@ services:
       - "8001:8000"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   log_aggregator:
     build: 

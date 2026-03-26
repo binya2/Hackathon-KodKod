@@ -1,10 +1,11 @@
 import uuid
 import math
-
+import os
+import json
+import redis.asyncio as redis
 from fastapi import HTTPException
 
 from data_pipeline.attack_commander.kafka_client import (
-    local_world_state,
     produce_message,
     log_to_kafka,
     iso8601_utc_now
@@ -15,10 +16,37 @@ TOPIC_DEPLOYMENT = "commands.deployment"
 TOPIC_INTEL = "events.intel"
 TOPIC_DRONES = "commands.drones"
 
+# Initialize Redis client
+redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
+
 
 async def _fetch_current_state():
-    # 0 מילי שניות שיהוי! שולף ישר מהזיכרון המקומי שמתעדכן ברקע
-    return local_world_state
+    """Fetches targets and drones from Redis and formats them for the service."""
+    targets_raw = await redis_client.hgetall("targets")
+    drones_raw = await redis_client.hgetall("drones")
+
+    target_data = []
+    for v in targets_raw.values():
+        try:
+            target_data.append(json.loads(v))
+        except Exception:
+            pass
+
+    all_drones = []
+    for v in drones_raw.values():
+        try:
+            all_drones.append(json.loads(v))
+        except Exception:
+            pass
+
+    recon_data = [d for d in all_drones if d.get("role", "").lower() == "recon"]
+    attack_data = [d for d in all_drones if d.get("role", "").lower() == "attack"]
+
+    return {
+        "target_data": target_data,
+        "recon_data": recon_data,
+        "attack_data": attack_data
+    }
 
 
 async def execute_engage(drone_id: str, target_id: str):
@@ -77,9 +105,10 @@ async def execute_engage(drone_id: str, target_id: str):
     }
 
     # Optimistic Update!
-    # מעדכנים מיד בזיכרון כדי למנוע ירי כפול לפני שהסימולטור מספיק לענות
     drone["flight_status"] = "ATTACKING"
     drone["weapons_count"] -= 1
+    drone["timestamp"] = iso8601_utc_now()
+    await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_COMMANDS, drone_id, payload)
     return payload
@@ -136,6 +165,8 @@ async def execute_recall(drone_id: str):
     if drone:
         drone["flight_status"] = "RETURNING"
         drone["assigned_target_id"] = None
+        drone["timestamp"] = iso8601_utc_now()
+        await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload
@@ -156,6 +187,8 @@ async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float)
     if drone:
         drone["flight_status"] = "MANUAL"
         drone["assigned_target_id"] = None
+        drone["timestamp"] = iso8601_utc_now()
+        await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload
@@ -174,6 +207,8 @@ async def execute_resume_auto(drone_id: str):
 
     if drone:
         drone["flight_status"] = "ACTIVE"
+        drone["timestamp"] = iso8601_utc_now()
+        await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload

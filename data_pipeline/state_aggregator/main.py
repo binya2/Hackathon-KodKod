@@ -30,7 +30,7 @@ app = FastAPI(title="State Aggregator API", lifespan=lifespan)
 
 @app.get("/api/state", response_model=WorldState)
 async def get_state():
-    return get_world_state()
+    return await get_world_state()
 
 
 @app.websocket("/ws")
@@ -39,7 +39,7 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("WebSocket client connected.")
     try:
         while True:
-            current_state = get_world_state()
+            current_state = await get_world_state()
             await websocket.send_text(current_state.model_dump_json())
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:

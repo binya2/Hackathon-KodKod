@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 import time
+from datetime import datetime, timezone
 from typing import AsyncIterable, Dict
 from aiokafka import AIOKafkaProducer
 
@@ -32,7 +33,7 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 continue
 
             if target.health <= 0:
-                active_recon = get_active_recon_drone_for_target(target.target_id)
+                active_recon = await get_active_recon_drone_for_target(target.target_id)
                 for drone in active_recon:
                     logger.info(f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
                     recall_cmd = {
@@ -40,14 +41,15 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                         "action": "RECALL_DRONE"
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
-                    
+
                     # Optimistic update
                     drone.flight_status = "RETURNING"
                     drone.assigned_target_id = None
-                    update_drone_telemetry(drone)
+                    drone.timestamp = datetime.now(timezone.utc)
+                    await update_drone_telemetry(drone)
                 continue
 
-            active_recon = get_active_recon_drone_for_target(target.target_id)
+            active_recon = await get_active_recon_drone_for_target(target.target_id)
 
             for i, drone in enumerate(active_recon):
                 now = time.time()
@@ -73,19 +75,6 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
             logger.error("Error processing target in Recon Brain: %s", e)
 
 
-async def process_telemetry_stream(consumer: AsyncIterable):
-    """Processes incoming drone telemetry and updates the state registry."""
-    async for msg in consumer:
-        if not msg.value:
-            continue
-        try:
-            raw_data = json.loads(msg.value.decode("utf-8"))
-            tel = DroneTelemetry.model_validate(raw_data)
-            update_drone_telemetry(tel)
-        except Exception as e:
-            logger.error("Error parsing telemetry in Recon Brain: %s", e)
-
-
 async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaProducer, running_in_k8s: bool):
     """Processes deployment commands to wake up recon drones and assign them to targets."""
     async for msg in consumer:
@@ -103,7 +92,7 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
 
 async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get("target_id")
-    active_recon = get_active_recon_drones()
+    active_recon = await get_active_recon_drones()
 
     if len(active_recon) < 5:
         await _wake_up_recon_drone(target_id, producer)
@@ -112,7 +101,7 @@ async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, runni
 
 
 async def _wake_up_recon_drone(target_id: str, producer: AIOKafkaProducer):
-    sleeping_recon = get_sleeping_recon_drones()
+    sleeping_recon = await get_sleeping_recon_drones()
     if not sleeping_recon:
         logger.warning("[DEPLOY] No sleeping recon drones available.")
         return
@@ -120,7 +109,8 @@ async def _wake_up_recon_drone(target_id: str, producer: AIOKafkaProducer):
     target_drone = sleeping_recon[0]
     target_drone.flight_status = "ACTIVE"
     target_drone.assigned_target_id = target_id
-    update_drone_telemetry(target_drone)
+    target_drone.timestamp = datetime.now(timezone.utc)
+    await update_drone_telemetry(target_drone)
 
     await _send_wake_up_commands(target_drone, target_id, producer)
     logger.info("[DEPLOY] Waking up %s for target %s", target_drone.drone_id, target_id)

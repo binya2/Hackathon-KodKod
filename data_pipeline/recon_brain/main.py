@@ -6,7 +6,6 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
 from data_pipeline.recon_brain.kafka_consumers import (
     process_target_stream,
-    process_telemetry_stream,
     process_deployment_stream
 )
 
@@ -28,13 +27,6 @@ async def run_recon_brain():
         auto_offset_reset="earliest"
     )
 
-    telemetry_consumer = AIOKafkaConsumer(
-        "telemetry.raw",
-        bootstrap_servers=bootstrap_servers,
-        group_id="recon_brain_telemetry",
-        auto_offset_reset="earliest"
-    )
-
     deploy_consumer = AIOKafkaConsumer(
         "commands.deployment",
         bootstrap_servers=bootstrap_servers,
@@ -44,7 +36,6 @@ async def run_recon_brain():
 
     await producer.start()
     await target_consumer.start()
-    await telemetry_consumer.start()
     await deploy_consumer.start()
 
     logger.info("Recon Brain service started.")
@@ -52,12 +43,10 @@ async def run_recon_brain():
     try:
         await asyncio.gather(
             process_target_stream(target_consumer, producer),
-            process_telemetry_stream(telemetry_consumer),
             process_deployment_stream(deploy_consumer, producer, RUNNING_IN_K8S)
         )
     finally:
         await target_consumer.stop()
-        await telemetry_consumer.stop()
         await deploy_consumer.stop()
         await producer.stop()
 

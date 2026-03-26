@@ -1,44 +1,18 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import AsyncIterable
 
 from aiokafka import AIOKafkaProducer
 
 from data_pipeline.attack_brain.state_manager import (
-    update_target,
     update_drone_telemetry,
     get_active_attack_drones,
     get_sleeping_attack_drones,
 )
-from data_pipeline.shared_models import TargetTelemetry, DroneTelemetry
+from data_pipeline.shared_models import DroneTelemetry
 
 logger = logging.getLogger(__name__)
-
-
-async def process_target_stream(consumer: AsyncIterable):
-    """Consumes target data and updates the state."""
-    async for msg in consumer:
-        if not msg.value:
-            continue
-        try:
-            raw_data = json.loads(msg.value.decode("utf-8"))
-            target = TargetTelemetry.model_validate(raw_data)
-            update_target(target)
-        except Exception as e:
-            logger.error("[ERROR] Parsing target: %s", e)
-
-
-async def process_telemetry_stream(consumer: AsyncIterable):
-    """Consumes drone telemetry and updates the state."""
-    async for msg in consumer:
-        if not msg.value:
-            continue
-        try:
-            raw_data = json.loads(msg.value.decode("utf-8"))
-            telemetry = DroneTelemetry.model_validate(raw_data)
-            update_drone_telemetry(telemetry)
-        except Exception as e:
-            logger.error("[ERROR] Parsing telemetry: %s", e)
 
 
 async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaProducer, running_in_k8s: bool):
@@ -58,7 +32,7 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
 
 async def _handle_attack_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get("target_id")
-    active_attack_drones = get_active_attack_drones()
+    active_attack_drones = await get_active_attack_drones()
 
     if len(active_attack_drones) < 5:
         await _wake_up_attack_drone(target_id, producer)
@@ -67,7 +41,7 @@ async def _handle_attack_deployment(data: dict, producer: AIOKafkaProducer, runn
 
 
 async def _wake_up_attack_drone(target_id: str, producer: AIOKafkaProducer):
-    sleeping_drones = get_sleeping_attack_drones()
+    sleeping_drones = await get_sleeping_attack_drones()
     if not sleeping_drones:
         logger.warning("[DEPLOY] No sleeping attack drones available.")
         return
@@ -75,7 +49,8 @@ async def _wake_up_attack_drone(target_id: str, producer: AIOKafkaProducer):
     target_drone = sleeping_drones[0]
     target_drone.flight_status = "ACTIVE"
     target_drone.assigned_target_id = target_id
-    update_drone_telemetry(target_drone)
+    target_drone.timestamp = datetime.now(timezone.utc)
+    await update_drone_telemetry(target_drone)
 
     await _send_attack_wake_up_commands(target_drone, target_id, producer)
     logger.info("[DEPLOY] Waking up %s for target %s", target_drone.drone_id, target_id)

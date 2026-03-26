@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 
 from aiokafka import AIOKafkaProducer
 
@@ -26,8 +27,8 @@ async def assignment_loop(producer: AIOKafkaProducer):
     """Continuously evaluates drone positions relative to their assigned targets."""
     while True:
         # Get all attack drones that are either active or currently being deployed
-        all_drones = get_active_attack_drones()
-        active_targets = get_active_targets()
+        all_drones = await get_active_attack_drones()
+        active_targets = await get_active_targets()
 
         # 1. Target-centric check: Ensure each active target has 2 drones
         for target in active_targets:
@@ -50,7 +51,7 @@ async def assignment_loop(producer: AIOKafkaProducer):
 
 
 async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drones, active_targets):
-    target = get_target(drone.assigned_target_id)
+    target = await get_target(drone.assigned_target_id)
 
     # If target is missing or dead, try to find a new one
     if not target or target.health <= 0:
@@ -65,7 +66,8 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
         if new_target:
             logger.info(f"[RE-ASSIGN] Drone {drone.drone_id} moved from dead {drone.assigned_target_id} to {new_target.target_id}")
             drone.assigned_target_id = new_target.target_id
-            update_drone_telemetry(drone)
+            drone.timestamp = datetime.now(timezone.utc)
+            await update_drone_telemetry(drone)
             target = new_target # Continue processing with new target
         else:
             await _recall_drone(drone.drone_id, producer)
@@ -92,11 +94,13 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
 
         # Recall the empty drone
         logger.info(f"[AMMO] Drone {drone.drone_id} is empty. Recalling...")
-        await _recall_drone(drone.drone_id, producer)
+        await _recall_drone(drone_id=drone.drone_id, producer=producer)
 
         # Mark locally to avoid re-processing in this loop
         drone.flight_status = "RETURNING"
-        update_drone_telemetry(drone)
+        drone.assigned_target_id = None
+        drone.timestamp = datetime.now(timezone.utc)
+        await update_drone_telemetry(drone)
         return
 
     await _send_drone_waypoint(drone, target, producer)
@@ -120,7 +124,7 @@ async def _recall_drone(drone_id: str, producer: AIOKafkaProducer):
 
 
 async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
-    drones_on_target = get_drones_on_target(drone.assigned_target_id)
+    drones_on_target = await get_drones_on_target(drone.assigned_target_id)
 
     try:
         index = next(i for i, d in enumerate(drones_on_target) if d.drone_id == drone.drone_id)

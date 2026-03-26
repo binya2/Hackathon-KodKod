@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 
 import uvicorn
@@ -7,8 +6,7 @@ from fastapi import FastAPI
 from data_pipeline.attack_commander.api_endpoints import router
 from data_pipeline.attack_commander.kafka_client import (
     init_kafka_producer,
-    stop_kafka_producer,
-    consume_state_topic
+    stop_kafka_producer
 )
 
 
@@ -16,11 +14,8 @@ from data_pipeline.attack_commander.kafka_client import (
 async def lifespan(_app: FastAPI):
     # הפעלת הפרודיוסר
     await init_kafka_producer()
-    # הפעלת משימת הרקע שמאזינה למצב העולם
-    consumer_task = asyncio.create_task(consume_state_topic())
     yield
     # כיבוי מסודר
-    consumer_task.cancel()
     await stop_kafka_producer()
 
 

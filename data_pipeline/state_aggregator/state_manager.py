@@ -1,63 +1,85 @@
 import logging
+import os
+import redis.asyncio as redis
 from datetime import datetime, timezone
-from typing import Dict
-
-from data_pipeline.shared_models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole
+from data_pipeline.shared_models import WorldState, DroneTelemetry, TargetTelemetry
 
 logger = logging.getLogger(__name__)
 
-_global_state = WorldState()
-_drones_registry: Dict[str, DroneTelemetry] = {}
-_targets_registry: Dict[str, TargetTelemetry] = {}
+# Initialize Redis client
+redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
-def update_drone_telemetry(telemetry: DroneTelemetry):
-    """Updates the registry with new drone telemetry."""
-    _drones_registry[telemetry.drone_id] = telemetry
+async def update_drone_telemetry(telemetry: DroneTelemetry):
+    """Updates Redis with new drone telemetry, ensuring we don't overwrite with older data."""
+    existing_json = await redis_client.hget("drones", telemetry.drone_id)
+    if existing_json:
+        try:
+            existing_drone = DroneTelemetry.model_validate_json(existing_json)
+            if telemetry.timestamp < existing_drone.timestamp:
+                return # Ignore older telemetry
+        except Exception:
+            pass # If parsing fails, just overwrite
+
+    await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
 
 
-def update_target_telemetry(telemetry: TargetTelemetry):
-    """Updates the registry with new target telemetry."""
-    _targets_registry[telemetry.target_id] = telemetry
+async def update_target_telemetry(telemetry: TargetTelemetry):
+    """Updates Redis with new target telemetry."""
+    await redis_client.hset("targets", telemetry.target_id, telemetry.model_dump_json())
 
 
-def garbage_collect_stale_drones():
-    """Removes drones that have not sent telemetry for a while."""
+async def garbage_collect_stale_drones():
+    """Removes drones from Redis that have not sent telemetry for a while."""
     now = datetime.now(timezone.utc)
-    # Increased to 15s for more stability during startup
-    stale_drones = [
-        d_id for d_id, drone in _drones_registry.items()
-        if (now - drone.timestamp).total_seconds() > 15.0
-    ]
-    for d_id in stale_drones:
-        logger.warning(f"Removing stale drone %s from state (no telemetry for >15s)", d_id)
-        del _drones_registry[d_id]
+    drones_raw = await redis_client.hgetall("drones")
+
+    for drone_id, drone_json in drones_raw.items():
+        try:
+            drone = DroneTelemetry.model_validate_json(drone_json)
+            if (now - drone.timestamp).total_seconds() > 15.0:
+                logger.warning(f"Removing stale drone %s from state (no telemetry for >15s)", drone_id)
+                await redis_client.hdel("drones", drone_id)
+        except Exception as e:
+            logger.error(f"Error parsing drone {drone_id}: {e}")
+            await redis_client.hdel("drones", drone_id)
 
 
-def _update_global_state():
-    now = datetime.now(timezone.utc)
-    _global_state.timestamp = now
+async def get_world_state() -> WorldState:
+    """Constructs and returns the current world state from Redis."""
+    await garbage_collect_stale_drones()
 
-    # Thread-safe local copies
-    drones = list(_drones_registry.values())
-    targets = list(_targets_registry.values())
+    drones_raw = await redis_client.hgetall("drones")
+    targets_raw = await redis_client.hgetall("targets")
+
+    drones = []
+    for v in drones_raw.values():
+        try:
+            drones.append(DroneTelemetry.model_validate_json(v))
+        except Exception as e:
+            logger.error(f"Error parsing drone telemetry: {e}")
+
+    targets = []
+    for v in targets_raw.values():
+        try:
+            targets.append(TargetTelemetry.model_validate_json(v))
+        except Exception as e:
+            logger.error(f"Error parsing target telemetry: {e}")
+
+    world_state = WorldState()
+    world_state.timestamp = datetime.now(timezone.utc)
 
     # Use lowercase comparison for robustness
-    _global_state.recon_data = sorted(
+    world_state.recon_data = sorted(
         [d for d in drones if d.role.lower() == "recon"],
         key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
     )
 
-    _global_state.attack_data = sorted(
+    world_state.attack_data = sorted(
         [d for d in drones if d.role.lower() == "attack"],
         key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
     )
 
-    _global_state.target_data = [t for t in targets if t.health > 0]
+    world_state.target_data = [t for t in targets if t.health > 0]
 
-
-def get_world_state() -> WorldState:
-    """Constructs and returns the current world state from the registries."""
-    garbage_collect_stale_drones()
-    _update_global_state()
-    return _global_state
+    return world_state
