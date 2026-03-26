@@ -109,8 +109,8 @@ async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
 
     waypoint = _calculate_waypoint(target.position, index)
 
-    dist_m = math.sqrt(
-        (drone.position.lat - target.position.lat) ** 2 + (drone.position.lon - target.position.lon) ** 2) * 111139
+    dist_m = math.sqrt((drone.position.lat - target.position.lat) ** 2 +
+                       (drone.position.lon - target.position.lon) ** 2) * 111139
     command_status = "ACTIVE" if dist_m <= 20.0 else "EN_ROUTE"
 
     cmd = DroneCommand(

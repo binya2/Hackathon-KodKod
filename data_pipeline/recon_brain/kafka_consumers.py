@@ -37,8 +37,9 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 # Identify all relevant drones for the destroyed target
                 active_recon = await get_active_recon_drone_for_target(target.target_id)
                 for drone in active_recon:
-                    logger.info(f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
-                    
+                    logger.info(
+                        f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
+
                     # 1. Send Recall Command
                     recall_cmd = {
                         "drone_id": drone.drone_id,
@@ -62,8 +63,9 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                     continue
 
                 # Calculate distance for dynamic status
-                dist = math.sqrt((drone.position.lat - target.position.lat)**2 + (drone.position.lon - target.position.lon)**2)
-                command_status = "EN_ROUTE" if dist > 0.00045 else "ACTIVE"
+                dist_m = math.sqrt((drone.position.lat - target.position.lat) ** 2 +
+                                   (drone.position.lon - target.position.lon) ** 2) * 111139
+                command_status = "EN_ROUTE" if dist_m > 50.0 else "ACTIVE"
 
                 # Standoff offset for recon: approx 15m East and 15m North
                 # This ensures they aren't directly overhead
@@ -112,7 +114,7 @@ async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, runni
 async def _wake_up_recon_drone(target_id: str, producer: AIOKafkaProducer):
     sleeping_recon = await get_sleeping_recon_drones()
     if not sleeping_recon:
-        return # Double check to avoid race condition
+        return  # Double check to avoid race condition
 
     target_drone = sleeping_recon[0]
     target_drone.flight_status = "EN_ROUTE"
