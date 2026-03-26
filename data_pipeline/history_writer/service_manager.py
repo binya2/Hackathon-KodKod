@@ -1,40 +1,65 @@
-import time
-from kafka_service import create_history_consumer, poll_and_decode_messages
-from db_service import archive_state_batch
+import asyncio
+import logging
+from datetime import datetime
+
+# Use relative imports when running as a package or direct imports when running as a script
+try:
+    from .kafka_service import create_history_consumer, poll_and_decode_messages
+    from .db_connection import get_collection
+except ImportError:
+    from kafka_service import create_history_consumer, poll_and_decode_messages
+    from db_connection import get_collection
+
+logger = logging.getLogger(__name__)
 
 
-class HistoryService:
-    def __init__(self, buffer_size: int = 10, flush_interval: float = 5.0):
-        self.buffer = []
-        self.buffer_size = buffer_size
-        self.flush_interval = flush_interval
-        self.last_flush_time = time.time()
-        self.consumer = create_history_consumer()
+async def run_history_ingestion():
+    """Background task to consume WorldState from Kafka and save flattened drone telemetry to MongoDB."""
+    consumer = create_history_consumer()
+    collection = get_collection("drone_telemetry_history")
+    
+    print("[History] Ingestion task started.")
+    try:
+        while True:
+            # poll_and_decode_messages is already using a timeout from confluent-kafka.
+            message = poll_and_decode_messages(consumer, timeout=0.1)
+            if message:
+                await process_world_state(message, collection)
+            
+            await asyncio.sleep(0.01) # Yield to event loop
+    except asyncio.CancelledError:
+        print("[History] Ingestion task stopping...")
+    finally:
+        consumer.close()
 
-    def run(self):
-        print("[History] Service started.")
+
+async def process_world_state(state: dict, collection):
+    """Flattens WorldState into individual drone telemetry documents and saves them."""
+    drone_docs = []
+    
+    # Process recon_data
+    for d in state.get("recon_data", []):
+        doc = {
+            "drone_id": d.get("drone_id"),
+            "assigned_target_id": d.get("assigned_target_id"),
+            "position": d.get("position"),
+            "timestamp": d.get("timestamp")
+        }
+        drone_docs.append(doc)
+        
+    # Process attack_data
+    for d in state.get("attack_data", []):
+        doc = {
+            "drone_id": d.get("drone_id"),
+            "assigned_target_id": d.get("assigned_target_id"),
+            "position": d.get("position"),
+            "timestamp": d.get("timestamp")
+        }
+        drone_docs.append(doc)
+        
+    if drone_docs:
         try:
-            while True:
-                message = poll_and_decode_messages(self.consumer)
-                if message:
-                    self.buffer.append(message)
-
-                if self._should_flush():
-                    self._flush_buffer()
-        finally:
-            self.consumer.close()
-
-    def _should_flush(self):
-        is_full = len(self.buffer) >= self.buffer_size
-        is_timeout = (time.time() - self.last_flush_time) >= self.flush_interval
-        return self.buffer and (is_full or is_timeout)
-
-    def _flush_buffer(self):
-        archive_state_batch(self.buffer)
-        self.buffer.clear()
-        self.last_flush_time = time.time()
-
-
-def run_history_service():
-    service = HistoryService()
-    service.run()
+            # Use insert_many for efficiency
+            collection.insert_many(drone_docs)
+        except Exception as e:
+            logger.error(f"[History] Failed to insert drone telemetry: {e}")
