@@ -47,32 +47,63 @@ class SecurityTester:
 
     async def test_manual_override(self):
         print("\n--- בדיקה 2: קטיעת תקיפה ע\"י תנועה ידנית ---")
-        state = await self.get_state()
-        if not state['target_data']:
-            print("יוצר מטרה לבדיקה...")
-            await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.8, "lon": 35.1})
-            await asyncio.sleep(2)
-            state = await self.get_state()
 
-        target_id = state['target_data'][0]['target_id']
-        attacker = next((d for d in state['attack_data'] if d['flight_status'] == "ACTIVE"), None)
-        if not attacker:
-            print("אין רחפן פעיל. מדלג.")
+        # 1. יצירת מטרה חדשה בצורה מבוקרת
+        print("יוצר מטרה לבדיקה...")
+        resp = await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.8, "lon": 35.1})
+        if resp.status_code != 200:
+            print(f"❌ שגיאה ביצירת מטרה: {resp.text}")
             return
 
-        print(f"שולח פקודת אש ל-{attacker['drone_id']}...")
+        target_id = resp.json()["target_id"]
+
+        # 2. לולאת המתנה לסנכרון המטרה באגרגטור
+        print(f"ממתין לסנכרון המטרה {target_id} במערכת...")
+        target_found = False
+        for _ in range(10):
+            state = await self.get_state()
+            if any(t['target_id'] == target_id for t in state.get('target_data', [])):
+                target_found = True
+                break
+            await asyncio.sleep(1)
+
+        if not target_found:
+            self.log_result("Manual Override", False, "המטרה לא הופיעה באגרגטור בזמן")
+            return
+
+        # 3. המתנה לרחפן תקיפה שיוקצה ויהיה פעיל
+        print(f"ממתין לרחפן תקיפה שיגיע למטרה...")
+        attacker = None
+        for _ in range(15):
+            state = await self.get_state()
+            attacker = next((d for d in state['attack_data']
+                             if d['assigned_target_id'] == target_id and d['flight_status'] == "ACTIVE"), None)
+            if attacker:
+                break
+            await asyncio.sleep(1)
+
+        if not attacker:
+            print("⚠️ לא נמצא רחפן תקיפה פעיל למטרה. מדלג.")
+            return
+
+        # 4. ביצוע פקודת אש וקטיעה מיידית
+        drone_id = attacker['drone_id']
+        print(f"שולח פקודת אש ל-{drone_id}...")
         await self.client.post(f"{COMMANDER_URL}/engage",
-                               json={"action": "engage", "target_id": target_id, "drone_id": attacker['drone_id']})
+                               json={"action": "engage", "target_id": target_id, "drone_id": drone_id})
 
-        print("שולח פקודת תנועה ידנית לקטיעה...")
-        resp = await self.client.post(f"{COMMANDER_URL}/manual_move",
-                                      json={"drone_id": attacker['drone_id'], "lat": 32.0, "lon": 34.0, "alt": 500})
+        print(f"שולח פקודת תנועה ידנית לקטיעת התקיפה של {drone_id}...")
+        await self.client.post(f"{COMMANDER_URL}/manual_move",
+                               json={"drone_id": drone_id, "lat": 32.0, "lon": 34.0, "alt": 500})
 
-        await asyncio.sleep(1)
+        # 5. בדיקת הסטטוס הסופי (בזכות ה-Timestamp Lock, ה-MANUAL אמור להישמר)
+        await asyncio.sleep(1.5)
         state = await self.get_state()
-        final_drone = next(d for d in state['attack_data'] if d['drone_id'] == attacker['drone_id'])
-        self.log_result("Manual Override", final_drone['flight_status'] == "MANUAL",
-                        f"Status: {final_drone['flight_status']}")
+        final_drone = next((d for d in state['attack_data'] if d['drone_id'] == drone_id), None)
+
+        success = final_drone and final_drone['flight_status'] == "MANUAL"
+        reason = f"Status: {final_drone['flight_status']}" if final_drone else "Drone lost"
+        self.log_result("Manual Override", success, reason)
 
     async def run_all(self):
         print("=== התחלת סדרת בדיקות חוסן מלאה ===")

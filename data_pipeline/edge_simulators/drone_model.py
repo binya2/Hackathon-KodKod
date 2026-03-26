@@ -32,10 +32,10 @@ class Drone:
 
     def wake_up(self, target_id: Optional[str] = None):
         if self.flight_status == "SLEEP":
-            self.flight_status = "ACTIVE"
+            self.flight_status = "EN_ROUTE"
             self.assigned_target_id = target_id
             self.target_alt = 200.0 if self.role == "recon" else 100.0
-            print(f"[Drone] {self.drone_id} Waking up for target {self.assigned_target_id}")
+            print(f"[Drone] {self.drone_id} En route to target {self.assigned_target_id}")
 
     def recall(self):
         print(f"[Drone] {self.drone_id} recalling to base.")
@@ -57,8 +57,18 @@ class Drone:
         self._handle_movement(dt)
         self._check_battery_and_crash(dt)
         self._check_arrival_at_base()
+        self._check_arrival_at_target()
 
         return self._check_strike_condition()
+
+    def _check_arrival_at_target(self):
+        """Transition from EN_ROUTE to ACTIVE when close to target."""
+        if self.flight_status == "EN_ROUTE":
+            dist = math.sqrt((self.lat - self.target_lat) ** 2 + (self.lon - self.target_lon) ** 2)
+            # 0.0002 degrees is approx 22 meters
+            if dist < 0.0002:
+                print(f"✅ [Drone] {self.drone_id} arrived at target and is now ACTIVE.")
+                self.flight_status = "ACTIVE"
 
     def _check_strike_condition(self) -> Optional[dict]:
         if self.flight_status != "ATTACKING" or not self.assigned_target_id:

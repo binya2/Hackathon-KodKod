@@ -46,7 +46,7 @@ async def _wake_up_attack_drone(target_id: str, producer: AIOKafkaProducer):
         return # Double check to avoid race condition
 
     target_drone = sleeping_drones[0]
-    target_drone.flight_status = "ACTIVE"
+    target_drone.flight_status = "EN_ROUTE"
     target_drone.assigned_target_id = target_id
     target_drone.timestamp = datetime.now(timezone.utc)
     await update_drone_telemetry(target_drone)

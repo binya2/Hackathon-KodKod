@@ -25,8 +25,8 @@ def _process_hit(event_data: dict, state: TargetState, producer):
     # Calculate distance to target
     distance = math.sqrt((state.base_lat - drone_lat) ** 2 + (state.base_lon - drone_lon) ** 2)
 
-    # Threshold: 0.00005 is approx 5.5 meters - high precision for direct hits
-    if distance < 0.00005:
+    # Threshold: 0.00015 is approx 15 meters
+    if distance < 0.00015:
         state.take_damage(25.0)
         print(f"💥 [DIRECT HIT] {state.target_id} hit! Health: {state.health}")
         # Send immediate update so the world knows the new health (especially 0%)
