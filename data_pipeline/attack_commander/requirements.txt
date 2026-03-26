@@ -1,5 +1,4 @@
-confluent-kafka
+aiokafka
 fastapi
 uvicorn
 pydantic
-httpx

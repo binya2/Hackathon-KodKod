@@ -4,12 +4,12 @@ import os
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from data_pipeline.attack_brain.assignment_logic import assignment_loop
 from data_pipeline.attack_brain.kafka_service import (
     process_target_stream,
     process_telemetry_stream,
     process_deployment_stream,
 )
-from data_pipeline.attack_brain.assignment_logic import assignment_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("attack-brain")

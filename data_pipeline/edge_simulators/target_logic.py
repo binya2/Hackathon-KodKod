@@ -5,12 +5,12 @@ from target_model import TargetState
 
 def handle_target_event(event_data: dict, topic: str, state: TargetState, producer):
     if topic == "events.payload_dropped":
-        _process_hit(event_data, state)
+        _process_hit(event_data, state, producer)
     elif topic == "events.intel":
         _process_intel(event_data, state, producer)
 
 
-def _process_hit(event_data: dict, state: TargetState):
+def _process_hit(event_data: dict, state: TargetState, producer):
     if not state.is_active:
         return
 
@@ -29,6 +29,8 @@ def _process_hit(event_data: dict, state: TargetState):
     if distance < 0.00005:
         state.take_damage(25.0)
         print(f"💥 [DIRECT HIT] {state.target_id} hit! Health: {state.health}")
+        # Send immediate update so the world knows the new health (especially 0%)
+        _send_immediate_telemetry(state, producer)
     else:
         print(f"☁️ [MISS] {state.target_id} - Accuracy insufficient. Dist: {distance:.6f}")
 

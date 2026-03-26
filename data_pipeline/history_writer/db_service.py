@@ -7,7 +7,7 @@ def archive_state_batch(states: list):
         return
 
     timestamped_states = _add_archive_timestamps(states)
-    
+
     try:
         collection = get_collection()
         result = collection.insert_many(timestamped_states)

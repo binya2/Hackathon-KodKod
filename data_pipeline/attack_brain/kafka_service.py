@@ -1,6 +1,5 @@
 import json
 import logging
-import uuid
 from typing import AsyncIterable
 
 from aiokafka import AIOKafkaProducer

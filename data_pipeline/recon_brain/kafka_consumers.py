@@ -1,7 +1,8 @@
 import json
 import logging
 import uuid
-from typing import AsyncIterable
+import time
+from typing import AsyncIterable, Dict
 from aiokafka import AIOKafkaProducer
 
 from data_pipeline.shared_models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
@@ -15,6 +16,7 @@ from data_pipeline.recon_brain.state_manager import (
 logger = logging.getLogger(__name__)
 
 RECON_ALTITUDE_OFFSET = 200.0
+_last_recon_nav_command_time: Dict[str, float] = {}
 
 
 async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProducer):
@@ -29,6 +31,11 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
             active_recon = get_active_recon_drone_for_target(target.target_id)
 
             for i, drone in enumerate(active_recon):
+                now = time.time()
+                last_time = _last_recon_nav_command_time.get(drone.drone_id, 0)
+                if now - last_time < 1.0:
+                    continue
+
                 # Standoff offset for recon: approx 15m East and 15m North
                 # This ensures they aren't directly overhead
                 nav_cmd = NavigationCommand(
@@ -41,6 +48,7 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                     priority=2
                 )
                 await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
+                _last_recon_nav_command_time[drone.drone_id] = now
 
         except Exception as e:
             logger.error("Error processing target in Recon Brain: %s", e)

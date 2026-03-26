@@ -1,39 +1,42 @@
 import asyncio
 import json
 import logging
+
 from aiokafka import AIOKafkaProducer
 
-from data_pipeline.shared_models import GeoPoint, DroneCommand
 from data_pipeline.attack_brain.state_manager import (
     get_active_attack_drones,
     get_target,
     get_drones_on_target,
     update_drone_telemetry,
 )
+from data_pipeline.shared_models import GeoPoint, DroneCommand
 
 logger = logging.getLogger(__name__)
 
 import math
 
 ALT_SEPARATION = 20.0
-# Standoff radius: ~15 meters in degrees
-STANDOFF_RADIUS = 0.00015
+# Standoff radius: ~5 meters in degrees
+STANDOFF_RADIUS = 0.00005
 
 
 async def assignment_loop(producer: AIOKafkaProducer):
     """Continuously evaluates drone positions relative to their assigned targets."""
     while True:
-        active_attack_drones = [d for d in get_active_attack_drones() if d.assigned_target_id]
+        # Get all attack drones that are either active or currently being deployed
+        all_drones = get_active_attack_drones()
+        active_attack_drones = [d for d in all_drones if d.assigned_target_id and d.flight_status != "RETURNING"]
 
         for drone in active_attack_drones:
-            await _process_drone_assignment(drone, producer)
+            await _process_drone_assignment(drone, producer, all_drones)
 
         await asyncio.sleep(2.0)
 
 
-async def _process_drone_assignment(drone, producer: AIOKafkaProducer):
+async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drones):
     target = get_target(drone.assigned_target_id)
-    
+
     if not target or target.health <= 0:
         await _recall_drone(drone.drone_id, producer)
         return
@@ -44,14 +47,26 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer):
 
     # Check for empty ammo and replace
     if drone.role == "attack" and drone.weapons_count == 0:
-        logger.info(f"[AMMO] Drone {drone.drone_id} out of ammo. Replacing...")
-        
-        # Mark as returning locally to free up slot immediately
+        # Check if a replacement is already assigned to this target
+        replacement_already_sent = any(
+            d.assigned_target_id == drone.assigned_target_id and
+            d.drone_id != drone.drone_id and
+            d.flight_status in ["ACTIVE", "ATTACKING"]
+            for d in all_drones
+        )
+
+        if not replacement_already_sent:
+            logger.info(
+                f"[AMMO] Drone {drone.drone_id} out of ammo. Requesting replacement for {drone.assigned_target_id}...")
+            await _request_replacement(drone.assigned_target_id, producer)
+
+        # Recall the empty drone
+        logger.info(f"[AMMO] Drone {drone.drone_id} is empty. Recalling...")
+        await _recall_drone(drone.drone_id, producer)
+
+        # Mark locally to avoid re-processing in this loop
         drone.flight_status = "RETURNING"
         update_drone_telemetry(drone)
-
-        await _recall_drone(drone.drone_id, producer)
-        await _request_replacement(drone.assigned_target_id, producer)
         return
 
     await _send_drone_waypoint(drone, target, producer)
@@ -76,10 +91,10 @@ async def _recall_drone(drone_id: str, producer: AIOKafkaProducer):
 
 async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
     drones_on_target = get_drones_on_target(drone.assigned_target_id)
-    
+
     try:
-        index = drones_on_target.index(drone)
-    except ValueError:
+        index = next(i for i, d in enumerate(drones_on_target) if d.drone_id == drone.drone_id)
+    except StopIteration:
         index = 0
 
     waypoint = _calculate_waypoint(target.position, index)

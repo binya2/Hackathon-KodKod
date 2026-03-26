@@ -44,10 +44,12 @@ def _poll_events(consumer, state, producer):
 
 def _emit_telemetry(state, producer):
     if not state.is_active:
-        return
+        if state._death_broadcasted:
+            return
+        state._death_broadcasted = True
 
-    jitter_lat = state.base_lat + random.uniform(-0.0001, 0.0001)
-    jitter_lon = state.base_lon + random.uniform(-0.0001, 0.0001)
+    jitter_lat = state.base_lat + random.uniform(-0.00002, 0.00002)
+    jitter_lon = state.base_lon + random.uniform(-0.00002, 0.00002)
 
     telemetry = state.create_telemetry(jitter_lat, jitter_lon)
     producer.produce("target.raw", key=state.target_id, value=telemetry.model_dump_json())

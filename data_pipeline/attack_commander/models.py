@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -8,8 +8,8 @@ class RecallRequest(BaseModel):
 
 class ManualMoveRequest(BaseModel):
     drone_id: str
-    lat: float
-    lon: float
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lon: float = Field(..., ge=-180.0, le=180.0)
     alt: float
 
 
@@ -29,5 +29,5 @@ class DeployRequest(BaseModel):
 
 
 class NewTargetRequest(BaseModel):
-    lat: float
-    lon: float
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lon: float = Field(..., ge=-180.0, le=180.0)

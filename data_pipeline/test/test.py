@@ -1,9 +1,17 @@
 import httpx
 import asyncio
 import time
+import math
 
 COMMANDER_URL = "http://localhost:8001"
 AGGREGATOR_URL = "http://localhost:8000"
+
+
+def calculate_distance(pos1, pos2):
+    # Rough estimation: 1 degree approx 111,139 meters
+    lat_diff = pos1["lat"] - pos2["lat"]
+    lon_diff = pos1["lon"] - pos2["lon"]
+    return math.sqrt(lat_diff**2 + lon_diff**2) * 111139
 
 
 async def get_state():
@@ -16,6 +24,21 @@ async def run_transparent_mission():
     print("=== מתחיל תהליך בדיקה שקוף ומפורט ===")
 
     async with httpx.AsyncClient() as client:
+        # 0. המתנה לזמינות רחפנים
+        print("\n[0] ממתין לזמינות רחפנים בבסיס...")
+        for i in range(20):
+            state = await get_state()
+            sleeping_recon = sum(1 for d in state.get("recon_data", []) if d.get("flight_status") == "SLEEP")
+            sleeping_attack = sum(1 for d in state.get("attack_data", []) if d.get("flight_status") == "SLEEP")
+            if sleeping_recon >= 1 and sleeping_attack >= 2:
+                print(f" -> ✅ רחפנים מוכנים! (Recon: {sleeping_recon}, Attack: {sleeping_attack})")
+                break
+            print(f" -> ⏳ ממתין... (Recon: {sleeping_recon}/1, Attack: {sleeping_attack}/2)")
+            await asyncio.sleep(2)
+        else:
+            print(" -> ❌ שגיאה: לא נמצאו מספיק רחפנים פנויים בבסיס. עוצר בדיקה.")
+            return
+
         # 1. בדיקת מצב התחלתי
         print("\n[1] בודק מצב מערכת נוכחי...")
         state = await get_state()
@@ -24,9 +47,10 @@ async def run_transparent_mission():
 
         # 2. יצירת מטרה
         print("\n[2] שולח פקודה ליצירת מטרה חדשה...")
-        resp = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.75, "lon": 35.25})
+        resp = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.8009, "lon": 35.1000})
         target_id = resp.json().get("target_id")
         print(f" -> המפקד אישר יצירת מטרה: {target_id}")
+        await asyncio.sleep(2) # המתנה להתפשטות המטרה
 
         # 3. המתנה להגעת רחפן תצפית
         print("\n[3] ממתין שרחפן תצפית יינעל על המטרה...")
@@ -73,6 +97,7 @@ async def run_transparent_mission():
                 continue
 
             attacker = active_attackers[0]
+            dist = calculate_distance(attacker["position"], target["position"])
 
             if current_attacker != attacker["drone_id"]:
                 print(
@@ -80,7 +105,7 @@ async def run_transparent_mission():
                 current_attacker = attacker["drone_id"]
 
             print(
-                f" -> 🚀 שולח פקודת אש ל-{current_attacker} | בריאות מטרה: {target['health']}% | טילים נותרים: {attacker['weapons_count']}")
+                f" -> 🚀 שולח פקודת אש ל-{current_attacker} | מרחק: {dist:.1f} מ' | בריאות מטרה: {target['health']}% | טילים נותרים: {attacker['weapons_count']}")
 
             # שליחת פקודת התקיפה
             engage_resp = await client.post(f"{COMMANDER_URL}/engage", json={"action": "engage", "target_id": target_id,

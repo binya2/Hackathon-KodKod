@@ -18,7 +18,7 @@ class HistoryService:
                 message = poll_and_decode_messages(self.consumer)
                 if message:
                     self.buffer.append(message)
-                
+
                 if self._should_flush():
                     self._flush_buffer()
         finally:

@@ -8,6 +8,7 @@ class TargetState:
         self.base_lon: float = 35.205
         self.health: float = 100.0
         self.is_active: bool = False
+        self._death_broadcasted: bool = False
 
     def spawn(self, target_id: str, lat: float, lon: float):
         self.target_id = target_id
@@ -15,6 +16,7 @@ class TargetState:
         self.base_lon = lon
         self.health = 100.0
         self.is_active = True
+        self._death_broadcasted = False
 
     def take_damage(self, amount: float):
         if self.is_active:

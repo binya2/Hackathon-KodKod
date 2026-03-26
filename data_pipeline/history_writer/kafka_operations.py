@@ -15,7 +15,7 @@ def stream_messages():
                 # No message available within the timeout
                 yield None
                 continue
-                
+
             if msg.error():
                 print(f"[Kafka Operations] Polling error: {msg.error()}")
                 continue
@@ -24,7 +24,7 @@ def stream_messages():
             if msg.value() is None:
                 print("[Kafka Operations] Skipping empty message.")
                 continue
-                
+
             try:
                 decoded_value = msg.value().decode("utf-8")
                 json_value = json.loads(decoded_value)
@@ -33,7 +33,7 @@ def stream_messages():
                 print(f"[Kafka Operations] JSON decode error: {json_err} for value: {msg.value()}")
             except Exception as e:
                 print(f"[Kafka Operations] Message processing error: {e}")
-                
+
     finally:
         # Close down consumer to commit final offsets.
         consumer.close()

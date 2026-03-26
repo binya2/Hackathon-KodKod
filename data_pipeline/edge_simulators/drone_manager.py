@@ -16,6 +16,10 @@ class DroneManager:
         return drones
 
     def handle_command(self, cmd_data: Dict[str, Any], topic: str, producer):
+        if topic == "commands.deployment":
+            self._process_deployment_command(cmd_data)
+            return
+
         drone_id = cmd_data.get("drone_id")
         drone = next((d for d in self.drones if d.drone_id == drone_id), None)
 
@@ -26,6 +30,18 @@ class DroneManager:
             self._process_system_command(drone, cmd_data)
         elif topic == "commands.attack":
             self._process_attack_command(drone, cmd_data, producer)
+
+    def _process_deployment_command(self, cmd: Dict[str, Any]):
+        role = cmd.get("role")
+        target_id = cmd.get("target_id")
+        
+        # Find the first sleeping drone of the requested role
+        available_drone = next((d for d in self.drones if d.role == role and d.flight_status == "SLEEP"), None)
+        if available_drone:
+            print(f"🌟 [SIM] Deploying {available_drone.drone_id} ({role}) for target {target_id}")
+            available_drone.wake_up(target_id)
+        else:
+            print(f"⚠️ [SIM] No available {role} drones for deployment!")
 
     def _process_system_command(self, drone: Drone, cmd: Dict[str, Any]):
         action = cmd.get("action")
@@ -55,6 +71,7 @@ class DroneManager:
             target_id = cmd.get("target_id")
             print(f"🎯 [SIM] {drone.drone_id} heading for STRIKE on {target_id}")
             drone.flight_status = "ATTACKING"
+            drone.assigned_target_id = target_id
             
             # Use provided coordinates for the strike, but keep current altitude
             pos = cmd.get("position")

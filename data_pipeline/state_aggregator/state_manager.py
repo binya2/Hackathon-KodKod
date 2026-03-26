@@ -38,18 +38,22 @@ def _update_global_state():
     now = datetime.now(timezone.utc)
     _global_state.timestamp = now
 
+    # Thread-safe local copies
+    drones = list(_drones_registry.values())
+    targets = list(_targets_registry.values())
+
     # Use lowercase comparison for robustness
     _global_state.recon_data = sorted(
-        [d for d in _drones_registry.values() if d.role.lower() == "recon"],
+        [d for d in drones if d.role.lower() == "recon"],
         key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
     )
 
     _global_state.attack_data = sorted(
-        [d for d in _drones_registry.values() if d.role.lower() == "attack"],
+        [d for d in drones if d.role.lower() == "attack"],
         key=lambda x: 0 if x.flight_status == "ACTIVE" else 1
     )
 
-    _global_state.target_data = list(_targets_registry.values())
+    _global_state.target_data = [t for t in targets if t.health > 0]
 
 
 def get_world_state() -> WorldState:

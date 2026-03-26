@@ -28,7 +28,7 @@ services:
 #      - kafka_data:/var/lib/kafka/data
 
   mongo:
-    image: mongo:7
+    image: mongo:latest
     container_name: mongodb
     ports:
       - "27017:27017"

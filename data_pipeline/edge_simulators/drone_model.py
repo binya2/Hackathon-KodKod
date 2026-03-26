@@ -40,11 +40,13 @@ class Drone:
     def recall(self):
         print(f"[Drone] {self.drone_id} recalling to base.")
         self.flight_status = "RETURNING"
+        self.assigned_target_id = None
         self.update_waypoint(BASE_LAT, BASE_LON, 0.0)
 
     def manual_move(self, lat: float, lon: float, alt: float):
         print(f"[Drone] {self.drone_id} manual move to {lat}, {lon}, {alt}")
         self.flight_status = "MANUAL"
+        self.assigned_target_id = None
         self.update_waypoint(lat, lon, alt)
 
     def tick(self, dt: float):
@@ -65,12 +67,13 @@ class Drone:
         # Calculate horizontal distance (lat/lon)
         dist = math.sqrt((self.lat - self.target_lat) ** 2 + (self.lon - self.target_lon) ** 2)
 
-        # RELEASE ON CONTACT (5 meters = 0.00005 degrees)
-        if dist < 0.00005 and self.weapons_count > 0:
+        # RELEASE ON CONTACT (10 meters = 0.0001 degrees)
+        if dist < 0.0001 and self.weapons_count > 0:
             self.weapons_count -= 1
-            print(f"💥 [STRIKE] {self.drone_id} RELEASED PAYLOAD on {self.assigned_target_id}! Ammo: {self.weapons_count}")
+            print(
+                f"💥 [STRIKE] {self.drone_id} RELEASED PAYLOAD on {self.assigned_target_id}! Ammo: {self.weapons_count}")
 
-            # Return to ACTIVE to allow the brain to resume standoff/patrol
+            # Return to ACTIVE mode to wait for next explicit command
             self.flight_status = "ACTIVE"
 
             return {
@@ -80,11 +83,6 @@ class Drone:
                 "lon": self.lon,
                 "event": "PAYLOAD_DROPPED"
             }
-
-        # Safety: if we somehow miss and fly too far away (>100m), reset to ACTIVE
-        if dist > 0.001:
-            print(f"⚠️ [STRIKE] {self.drone_id} missed or overshot target. Resetting.")
-            self.flight_status = "ACTIVE"
 
         return None
 
@@ -99,34 +97,33 @@ class Drone:
         if self.flight_status == "RETURNING":
             speed_multiplier = 1.5
         elif self.flight_status == "ATTACKING":
-            # Slow down significantly when approaching the target for precision
-            # If closer than 20 meters (0.0002 degrees), drop speed to ~2 m/s
-            if dist < 0.0002:
-                speed_multiplier = 0.1 # Very slow for final approach
-            else:
-                speed_multiplier = 1.2 # Fast approach
+            if dist > 0.001:  # Far from target (>110m)
+                speed_multiplier = 3.0  # Sprint to close the gap
+            elif dist > 0.0002:  # Getting closer (20m - 110m)
+                speed_multiplier = 2.0  # Fast approach
+            else:  # Very close (<20m)
+                speed_multiplier = 1.2  # Precision match
 
         step = base_speed * dt * speed_multiplier
-        # Latitude movement with snap
-        if abs(self.lat - self.target_lat) <= step:
-            self.lat = self.target_lat
-        else:
-            self.lat += step if self.lat < self.target_lat else -step
 
-        # Longitude movement with snap
-        if abs(self.lon - self.target_lon) <= step:
-            self.lon = self.target_lon
-        else:
-            self.lon += step if self.lon < self.target_lon else -step
+        # Calculate direction vector
+        delta_lat = self.target_lat - self.lat
+        delta_lon = self.target_lon - self.lon
 
-        # Altitude movement with snap
-        alt_step = step * 10
+        if dist > 0:
+            # Move towards target proportional to the distance in each axis
+            self.lat += (delta_lat / dist) * step
+            self.lon += (delta_lon / dist) * step
+
+        # Altitude movement with snap (much faster)
+        alt_step = 50.0 * dt
         if abs(self.alt - self.target_alt) <= alt_step:
             self.alt = self.target_alt
         else:
             self.alt += alt_step if self.alt < self.target_alt else -alt_step
 
-        self.heading = (self.heading + random.uniform(-5, 5)) % 360
+        if dist > 0:
+            self.heading = math.degrees(math.atan2(delta_lon, delta_lat)) % 360
 
     def _handle_charging_and_reloading(self, dt: float):
         if self.battery < 100.0:
@@ -139,6 +136,12 @@ class Drone:
     def _check_battery_and_crash(self, dt: float):
         battery_drain = 0.05 * dt
         self.battery -= battery_drain
+
+        # AUTO-RECALL on low battery (20%)
+        if self.battery < 20.0 and self.flight_status not in ["RETURNING", "SLEEP", "CRASHED"]:
+            print(f"🪫 [Drone] {self.drone_id} Low battery ({self.battery:.1f}%). Recalling...")
+            self.recall()
+
         if self.battery <= 0:
             self.battery = 0
             self.flight_status = "CRASHED"
@@ -148,11 +151,13 @@ class Drone:
     def _check_arrival_at_base(self):
         if self.flight_status == "RETURNING":
             dist = math.sqrt((self.lat - BASE_LAT) ** 2 + (self.lon - BASE_LON) ** 2)
-            if dist < 0.005:
+            # 0.0001 degrees is approx 11 meters
+            if dist < 0.0001 and self.alt <= 0.1:
                 self.flight_status = "SLEEP"
                 self.assigned_target_id = None
                 self.lat, self.lon, self.alt = BASE_LAT, BASE_LON, 0.0
                 self.target_alt = 0.0
+                print(f"🏠 [Drone] {self.drone_id} landed and entered SLEEP mode.")
 
     def to_telemetry(self) -> DroneTelemetry:
         return DroneTelemetry(
