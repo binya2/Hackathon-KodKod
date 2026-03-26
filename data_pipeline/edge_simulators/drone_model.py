@@ -31,13 +31,16 @@ class Drone:
         self.target_lon = lon
         self.target_alt = alt
 
-    def wake_up(self, target_id: Optional[str] = None):
+    def wake_up(self, target_id: Optional[str] = None, target_lat: Optional[float] = None, target_lon: Optional[float] = None):
         if self.flight_status == "SLEEP":
             self.flight_status = "EN_ROUTE"
             self.assigned_target_id = target_id
             self.target_alt = 200.0 if self.role == "recon" else 100.0
+            if target_lat is not None and target_lon is not None:
+                self.target_lat = target_lat
+                self.target_lon = target_lon
             self.timestamp = datetime.now(timezone.utc)
-            print(f"[Drone] {self.drone_id} En route to target {self.assigned_target_id}")
+            print(f"[Drone] {self.drone_id} En route to target {self.assigned_target_id} at ({target_lat}, {target_lon})")
 
     def recall(self):
         print(f"[Drone] {self.drone_id} recalling to base.")
@@ -74,16 +77,13 @@ class Drone:
         if self.flight_status != "ATTACKING" or not self.assigned_target_id:
             return None
 
-        # Calculate horizontal distance (lat/lon)
         dist = math.sqrt((self.lat - self.target_lat) ** 2 + (self.lon - self.target_lon) ** 2)
 
-        # RELEASE ON CONTACT (10 meters = 0.0001 degrees)
         if dist < 0.0001 and self.weapons_count > 0:
             self.weapons_count -= 1
             print(
                 f"💥 [STRIKE] {self.drone_id} RELEASED PAYLOAD on {self.assigned_target_id}! Ammo: {self.weapons_count}")
 
-            # Return to ACTIVE mode to wait for next explicit command
             self.flight_status = "ACTIVE"
 
             return {
@@ -97,49 +97,44 @@ class Drone:
         return None
 
     def _handle_movement(self, dt: float):
-        # Calculate current distance to target
         dist = math.sqrt((self.lat - self.target_lat) ** 2 + (self.lon - self.target_lon) ** 2)
 
-        # Base speed: 0.00025 deg/sec is approx 27 m/s (100 km/h)
         base_speed = 0.00025
-        speed_multiplier = 1.0
+        speed_multiplier = 0.0
 
-        if self.flight_status == "RETURNING":
+        if self.flight_status == "EN_ROUTE":
+            speed_multiplier = 1.0
+        elif self.flight_status == "RETURNING":
             speed_multiplier = 1.5
         elif self.flight_status == "ATTACKING":
-            if dist > 0.001:  # Far from target (>110m)
-                speed_multiplier = 3.0  # Sprint to close the gap
-            elif dist > 0.0002:  # Getting closer (20m - 110m)
-                speed_multiplier = 2.0  # Fast approach
-            else:  # Very close (<20m)
-                speed_multiplier = 1.2  # Precision match
+            if dist > 0.001:
+                speed_multiplier = 3.0
+            elif dist > 0.0002:
+                speed_multiplier = 2.0
+            else:
+                speed_multiplier = 1.2
 
         step = base_speed * dt * speed_multiplier
 
-        # Calculate direction vector
         delta_lat = self.target_lat - self.lat
         delta_lon = self.target_lon - self.lon
 
-        if dist > 0:
-            # Move towards target proportional to the distance in each axis
-            self.lat += (delta_lat / dist) * step
-            self.lon += (delta_lon / dist) * step
+        if dist > 0 and step > 0:
+            bearing = math.atan2(delta_lon, delta_lat)
+            self.lat += math.cos(bearing) * step
+            self.lon += math.sin(bearing) * step
+            self.heading = math.degrees(bearing) % 360
 
-        # Altitude movement with snap (much faster)
         alt_step = 50.0 * dt
         if abs(self.alt - self.target_alt) <= alt_step:
             self.alt = self.target_alt
         else:
             self.alt += alt_step if self.alt < self.target_alt else -alt_step
 
-        if dist > 0:
-            self.heading = math.degrees(math.atan2(delta_lon, delta_lat)) % 360
-
     def _handle_charging_and_reloading(self, dt: float):
         if self.battery < 100.0:
             self.battery = min(100.0, self.battery + (5.0 * dt))
         if self.role == "attack" and self.weapons_count < 5:
-            # Chance to reload one grenade per tick if in SLEEP
             if random.random() < (0.5 * dt):
                 self.weapons_count += 1
 
@@ -147,7 +142,6 @@ class Drone:
         battery_drain = 0.05 * dt
         self.battery -= battery_drain
 
-        # AUTO-RECALL on low battery (20%)
         if self.battery < 20.0 and self.flight_status not in ["RETURNING", "SLEEP", "CRASHED"]:
             print(f"🪫 [Drone] {self.drone_id} Low battery ({self.battery:.1f}%). Recalling...")
             self.recall()
@@ -161,7 +155,6 @@ class Drone:
     def _check_arrival_at_base(self):
         if self.flight_status == "RETURNING":
             dist = math.sqrt((self.lat - BASE_LAT) ** 2 + (self.lon - BASE_LON) ** 2)
-            # 0.0001 degrees is approx 11 meters
             if dist < 0.0001 and self.alt <= 0.1:
                 self.flight_status = "SLEEP"
                 self.assigned_target_id = None

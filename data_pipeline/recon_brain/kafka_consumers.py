@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import uuid
 import time
 from datetime import datetime, timezone, timedelta
@@ -62,15 +63,15 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
 
                 # Calculate distance for dynamic status
                 dist = math.sqrt((drone.position.lat - target.position.lat)**2 + (drone.position.lon - target.position.lon)**2)
-                command_status = "EN_ROUTE" if dist > 0.002 else "ACTIVE"
+                command_status = "EN_ROUTE" if dist > 0.00045 else "ACTIVE"
 
                 # Standoff offset for recon: approx 15m East and 15m North
                 # This ensures they aren't directly overhead
                 nav_cmd = NavigationCommand(
                     drone_id=drone.drone_id,
                     position=GeoPoint(
-                        lat=target.position.lat + 0.00015,
-                        lon=target.position.lon + 0.00015,
+                        lat=target.position.lat + 0.00005,
+                        lon=target.position.lon + 0.00005,
                         alt=RECON_ALTITUDE_OFFSET + (i * 10.0)
                     ),
                     priority=2,

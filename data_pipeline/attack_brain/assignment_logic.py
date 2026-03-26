@@ -40,7 +40,7 @@ async def assignment_loop(producer: AIOKafkaProducer):
             )
             if assigned_count < 2:
                 logger.info(f"[ASSIGN] Target {target.target_id} has {assigned_count} drones. Requesting replacement...")
-                await _request_replacement(target.target_id, producer)
+                await _request_replacement(target, producer)
 
         # 2. Drone-centric check: Process assignments
         for drone in all_drones:
@@ -96,7 +96,7 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
         if not replacement_already_sent:
             logger.info(
                 f"[AMMO] Drone {drone.drone_id} out of ammo. Requesting replacement for {drone.assigned_target_id}...")
-            await _request_replacement(drone.assigned_target_id, producer)
+            await _request_replacement(target, producer)
 
         # Recall the empty drone
         logger.info(f"[AMMO] Drone {drone.drone_id} is empty. Recalling...")
@@ -112,11 +112,15 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
     await _send_drone_waypoint(drone, target, producer)
 
 
-async def _request_replacement(target_id: str, producer: AIOKafkaProducer):
+async def _request_replacement(target, producer: AIOKafkaProducer):
     deploy_cmd = {
         "action": "DEPLOY_DRONE",
         "role": "attack",
-        "target_id": target_id
+        "target_id": target.target_id,
+        "position": {
+            "lat": target.position.lat,
+            "lon": target.position.lon
+        }
     }
     await producer.send_and_wait("commands.deployment", json.dumps(deploy_cmd).encode("utf-8"))
 
@@ -140,8 +144,9 @@ async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
     waypoint = _calculate_waypoint(target.position, index)
     
     # Calculate distance for dynamic status (20-meter precision threshold)
-    dist = math.sqrt((drone.position.lat - target.position.lat)**2 + (drone.position.lon - target.position.lon)**2)
-    command_status = "ACTIVE" if dist <= 0.0002 else "EN_ROUTE"
+    dist_m = math.sqrt(
+        (drone.position.lat - target.position.lat) ** 2 + (drone.position.lon - target.position.lon) ** 2) * 111139
+    command_status = "ACTIVE" if dist_m <= 20.0 else "EN_ROUTE"
     
     cmd = DroneCommand(
         drone_id=drone.drone_id, 

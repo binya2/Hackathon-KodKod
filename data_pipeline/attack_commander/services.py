@@ -89,8 +89,8 @@ async def execute_engage(drone_id: str, target_id: str):
                     # Log the calculated distance to Kafka for debugging
                     await log_to_kafka("DEBUG", f"Engage Check: Target {target_id}, Recon {recon_id}, Distance: {dist_m:.2f}m")
 
-                    # Threshold: 200 meters. Strict limit.
-                    if dist_m <= 200:
+                    # Threshold: 50 meters. Strict limit.
+                    if dist_m <= 50:
                         recon_ready = True
                         break
 

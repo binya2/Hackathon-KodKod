@@ -34,19 +34,23 @@ class DroneManager:
     def _process_deployment_command(self, cmd: Dict[str, Any]):
         role = cmd.get("role")
         target_id = cmd.get("target_id")
-        
-        # Find the first sleeping drone of the requested role
+        position = cmd.get("position")
+
         available_drone = next((d for d in self.drones if d.role == role and d.flight_status == "SLEEP"), None)
-        if available_drone:
+        if available_drone and position:
             print(f"🌟 [SIM] Deploying {available_drone.drone_id} ({role}) for target {target_id}")
-            available_drone.wake_up(target_id)
+            available_drone.wake_up(target_id, position.get("lat"), position.get("lon"))
         else:
-            print(f"⚠️ [SIM] No available {role} drones for deployment!")
+            if not available_drone:
+                print(f"⚠️ [SIM] No available {role} drones for deployment!")
+            if not position:
+                print(f"⚠️ [SIM] Deployment command for {target_id} is missing position!")
 
     def _process_system_command(self, drone: Drone, cmd: Dict[str, Any]):
         action = cmd.get("action")
         if action == "WAKE_UP":
-            drone.wake_up(cmd.get("target_id"))
+            pos = cmd.get("position", {})
+            drone.wake_up(cmd.get("target_id"), pos.get("lat"), pos.get("lon"))
         elif action == "RECALL_DRONE":
             drone.recall()
         elif action == "MANUAL_MOVE":
@@ -55,28 +59,23 @@ class DroneManager:
         elif action == "RESUME_AUTO":
             drone.flight_status = "ACTIVE"
         elif "position" in cmd:
-            # Handle waypoint update from Brain
             if drone.flight_status != "ATTACKING":
                 pos = cmd.get("position", {})
                 drone.update_waypoint(pos.get("lat"), pos.get("lon"), pos.get("alt", drone.alt))
-                # Adopt the flight_status provided in the incoming Kafka message payload
                 if "flight_status" in cmd:
                     drone.flight_status = cmd["flight_status"]
 
     def _process_attack_command(self, drone: Drone, cmd: Dict[str, Any], producer):
-        # Explicit check: Only 'attack' drones are allowed to execute strikes.
         if drone.role.lower() != "attack":
             print(f"⚠️ [SIM] Drone {drone.drone_id} is a {drone.role} drone and cannot perform strikes.")
             return
 
-        # Set the drone to ATTACKING status and its waypoint to the target location.
         if cmd.get("action") == "EXECUTE_STRIKE" and drone.weapons_count > 0:
             target_id = cmd.get("target_id")
             print(f"🎯 [SIM] {drone.drone_id} heading for STRIKE on {target_id}")
             drone.flight_status = "ATTACKING"
             drone.assigned_target_id = target_id
             
-            # Use provided coordinates for the strike, but keep current altitude
             pos = cmd.get("position")
             if pos:
                 drone.update_waypoint(pos.get("lat"), pos.get("lon"), drone.alt)
