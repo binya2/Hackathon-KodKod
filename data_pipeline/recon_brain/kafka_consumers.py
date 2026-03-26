@@ -9,6 +9,7 @@ from aiokafka import AIOKafkaProducer
 
 from data_pipeline.shared_models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
 from data_pipeline.recon_brain.state_manager import (
+    update_drone_telemetry,
     get_active_recon_drone_for_target,
     get_active_recon_drones,
     get_sleeping_recon_drones
@@ -96,34 +97,36 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
 
 async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get("target_id")
+    position = data.get("position")
     sleeping_recon = await get_sleeping_recon_drones()
 
     if len(sleeping_recon) > 0:
-        await _wake_up_recon_drone(target_id, producer)
+        await _wake_up_recon_drone(target_id, position, producer)
     else:
         await _handle_capacity_limit(data, producer, running_in_k8s)
 
 
-async def _wake_up_recon_drone(target_id: str, producer: AIOKafkaProducer):
+async def _wake_up_recon_drone(target_id: str, position: dict, producer: AIOKafkaProducer):
     sleeping_recon = await get_sleeping_recon_drones()
     if not sleeping_recon:
         return  # Double check to avoid race condition
 
     target_drone = sleeping_recon[0]
+    target_drone.flight_status = "EN_ROUTE"
+    target_drone.assigned_target_id = target_id
+    target_drone.timestamp = datetime.now(timezone.utc)
+    await update_drone_telemetry(target_drone)
 
-    await _send_wake_up_commands(target_drone, target_id, producer)
+    await _send_wake_up_commands(target_drone, target_id, position, producer)
     logger.info("[DEPLOY] Waking up %s for target %s", target_drone.drone_id, target_id)
 
 
-async def _send_wake_up_commands(drone: DroneTelemetry, target_id: str, producer: AIOKafkaProducer):
+async def _send_wake_up_commands(drone: DroneTelemetry, target_id: str, position: dict, producer: AIOKafkaProducer):
     wake_cmd = {
         "drone_id": drone.drone_id,
         "action": "WAKE_UP",
         "target_id": target_id,
-        "position": {
-            "lat": drone.position.lat,
-            "lon": drone.position.lon
-        }
+        "position": position
     }
     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
 

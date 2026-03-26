@@ -16,10 +16,6 @@ class DroneManager:
         return drones
 
     def handle_command(self, cmd_data: Dict[str, Any], topic: str, producer):
-        if topic == "commands.deployment":
-            self._process_deployment_command(cmd_data)
-            return
-
         drone_id = cmd_data.get("drone_id")
         drone = next((d for d in self.drones if d.drone_id == drone_id), None)
 
@@ -30,21 +26,6 @@ class DroneManager:
             self._process_system_command(drone, cmd_data)
         elif topic == "commands.attack":
             self._process_attack_command(drone, cmd_data, producer)
-
-    def _process_deployment_command(self, cmd: Dict[str, Any]):
-        role = cmd.get("role")
-        target_id = cmd.get("target_id")
-        position = cmd.get("position")
-
-        available_drone = next((d for d in self.drones if d.role == role and d.flight_status == "SLEEP"), None)
-        if available_drone and position:
-            print(f"🌟 [SIM] Deploying {available_drone.drone_id} ({role}) for target {target_id}")
-            available_drone.wake_up(target_id, position.get("lat"), position.get("lon"))
-        else:
-            if not available_drone:
-                print(f"⚠️ [SIM] No available {role} drones for deployment!")
-            if not position:
-                print(f"⚠️ [SIM] Deployment command for {target_id} is missing position!")
 
     def _process_system_command(self, drone: Drone, cmd: Dict[str, Any]):
         action = cmd.get("action")

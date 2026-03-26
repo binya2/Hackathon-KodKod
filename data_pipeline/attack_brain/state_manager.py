@@ -35,6 +35,11 @@ async def get_active_targets() -> List[TargetTelemetry]:
     return targets
 
 
+async def update_drone_telemetry(telemetry: DroneTelemetry):
+    """Updates Redis with new drone telemetry."""
+    await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
+
+
 async def get_active_attack_drones() -> List[DroneTelemetry]:
     """Returns a list of all active attack drones from Redis."""
     drones_raw = await redis_client.hgetall("drones")

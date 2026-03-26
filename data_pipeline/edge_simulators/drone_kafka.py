@@ -15,5 +15,5 @@ def create_drone_consumer(bootstrap_servers: str):
         "auto.offset.reset": "earliest",
         "enable.auto.commit": True
     })
-    consumer.subscribe(["commands.drones", "commands.attack", "commands.deployment"])
+    consumer.subscribe(["commands.drones", "commands.attack"])
     return consumer
