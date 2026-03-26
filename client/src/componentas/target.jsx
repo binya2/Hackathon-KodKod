@@ -1,14 +1,13 @@
-import { Marker, Polygon } from "react-leaflet";
+import { Marker, Polygon, Popup } from "react-leaflet";
 import SmoothMarker from "./smoothMarker";
 import { droneIconTarget } from "../icons/target";
 
 export default function Target({ data }) {
-  // console.log(data);
   if (!data) return null;
   return (
     <>
-    {data.map((target)=>{
-
+    {data.filter(t=>t.health > 0)
+    .map((target)=>{
       return(
       <div key={target.target_id}>
         <SmoothMarker position={[target.position.lat, target.position.lon]} icon={droneIconTarget}/>

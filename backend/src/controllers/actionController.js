@@ -17,8 +17,6 @@ export const handleEngage = async (req, res) => {
             body: JSON.stringify({ action, target_id, drone_id })
         });
 
-        if (!response.ok) throw new Error('Data Team API returned an error');
-
         const data = await response.json();
 
         return res.status(200).json({
@@ -52,10 +50,7 @@ export const handleNavigate = async (req, res) => {
                 "lon": lon,
                 "alt": 150.0
             })
-        });
-
-        if (!response.ok) throw new Error('Data Team API returned an error');
-
+        })
         const data = await response.json();
 
 
@@ -77,7 +72,7 @@ export const handleAuto = async (req, res) => {
 
         console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
         console.log(`Drone ID: ${drone_id}`);
-
+try{
         const response = await fetch('http://localhost:8001/resume_auto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,8 +83,6 @@ export const handleAuto = async (req, res) => {
             })
         });
 
-        if (!response.ok) throw new Error('Data Team API returned an error');
-
         const data = await response.json();
 
         return res.status(200).json({
@@ -98,8 +91,40 @@ export const handleAuto = async (req, res) => {
             data: data,
                 
         });
+    }catch{
+        res.status(500).json({ status: 'error', message: error.message });
+    }
 
 };
+
+export const handleNewTarget = async (req, res) => {
+    const { lat,lon } = req.body;
+
+        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
+
+try{
+        const response = await fetch('http://localhost:8001/new_target', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+
+                lat:lat,
+                lon,lon
+
+            })
+        });
+        const data = await response.json();
+        return res.status(200).json({
+            status: 'success',
+            message: 'Navigation update successful',
+            data: data,
+                
+        });
+    }catch(err){
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
 
 export const getDroneHistory = async (req, res) => {
     try {
@@ -125,11 +150,7 @@ export const getCurrentState = async (req, res) => {
         const response = await fetch('http://localhost:8000/api/state', {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Data Team API returned an error ${error.message}`);
-        }
+        })
 
         const data = await response.json();
 
@@ -158,18 +179,10 @@ export const handleDeployDrone = async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                "status": "deployment_request_sent",
-                "payload": {
-                    "action": "DEPLOY_DRONE",
-                    "role": "attack",
-                    "target_id": target_id,
-                    "timestamp": new Date()
-                }
-            })
+               role:role,
+               target_id:target_id
         })
-
-        if (!response.ok) throw new Error('Data Team API failed to process deployment');
-
+    })
         const data = await response.json();
 
         return res.status(200).json({
@@ -186,4 +199,24 @@ export const handleDeployDrone = async (req, res) => {
         console.error('Deployment Error:', error.message);
         return res.status(500).json({ status: 'error', message: 'Internal server error during deployment' });
     }
-};
+}
+
+export const handleRecallDrone = async (req, res) => {
+    const {  drone_id } = req.body;
+    try {
+        const response = await fetch('http://localhost:8001/recall_drone', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              drone_id:drone_id
+            })
+        })
+
+        const data = await response.json();
+        return res.status(200).json(data);
+
+    } catch (error) {
+        console.error('Deployment Error:', error.message);
+        return res.status(500).json({ status: 'error', message: 'Internal server error during deployment' });
+    }
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function UnifiedDronePanel({ data, onTakeoff, onEngage }) {
+export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMission, onRecall, onManualDeploy }) {
     if (!data) return <div className="side-panel">ממתין לנתונים...</div>;
 
     const reconDrones = data.recon_data || [];
@@ -19,17 +19,36 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage }) {
                 🎮 מרכז שליטה ובקרה
             </h2>
 
-
+            <section style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#222', borderRadius: '8px' }}>
+                <h3 style={{ color: '#ffcc00', fontSize: '14px', marginTop: 0 }}>🏁 משימה חדשה</h3>
+                <button
+                    onClick={() => onStartMission(31.8, 35.105)} // נ"צ ברירת מחדל מהאיפיון
+                    style={btnStyle('#ffcc00', false)}
+                >
+                    צור מטרה והזנק סיור 🛰️
+                </button>
+            </section>
             <section style={{ marginBottom: '20px' }}>
                 <h3 style={{ color: '#00d4ff', fontSize: '16px', marginBottom: '10px' }}>📡 רחפני תצפית ({reconDrones.length})</h3>
                 {reconDrones.map((drone) => (
                     <div key={drone.drone_id} style={droneCardStyle}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>🆔 {drone.drone_id}</span>
-                            <span style={{ fontSize: '12px', opacity: 0.8 }}>🔋 {drone.battery_percent || 100}%</span>
+                            <span style={{ fontSize: '12px', opacity: 0.8 }}>🔋 {drone.battery_percent}% {drone.battery_percent < 20 && " (סוללה חלשה!)"}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }}>
-                            <button onClick={() => onTakeoff(drone.drone_id)} style={btnStyle('#4CAF50')}>הזנק</button>
+                            <button
+                                onClick={() => onManualDeploy(drone.role)} // משתמש ב-role הקיים של הרחפן (attack/recon)
+                                style={btnStyle('#4CAF50')}
+                            >
+                                הזנק למטרה 🚀
+                            </button>
+                            <button
+                                onClick={() => onRecall(drone.drone_id)}
+                                style={btnStyle('#ff9800')} // צבע כתום לפי המלצות הסטטוס באפיון
+                            >
+                                חזור לבסיס 🏠
+                            </button>
                         </div>
                     </div>
                 ))}
@@ -41,16 +60,28 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage }) {
                     <div key={drone.drone_id} style={droneCardStyle}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>🆔 {drone.drone_id}</span>
-                            <span style={{ fontSize: '12px' }}>🔋 {drone.battery_percent}%</span>
+                            <span style={{ fontSize: '12px' }}>🔋{drone.battery_percent}% {drone.battery_percent < 20 && " (סוללה חלשה!)"}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }}>
-                            <button onClick={() => onTakeoff(drone.drone_id)} style={btnStyle('#4CAF50')}>הזנק</button>
+
+                            <button
+                                onClick={() => onManualDeploy(drone.role)} // משתמש ב-role הקיים של הרחפן (attack/recon)
+                                style={btnStyle('#4CAF50')}
+                            >
+                                הזנק למטרה 🚀
+                            </button>
                             <button
                                 onClick={() => onEngage(drone.drone_id)}
-                                disabled={!drone.weapons_ready || drone.weapons_ready === 0}
-                                style={btnStyle('#f44336', !drone.weapons_ready || drone.weapons_ready === 0)}
+
+                                style={btnStyle('#f44336')}
                             >
-                                תקוף ({drone.weapons_ready || 0})
+                                תקוף ({drone.weapons_count || 0})
+                            </button>
+                            <button
+                                onClick={() => onRecall(drone.drone_id)}
+                                style={btnStyle('#ff9800')} // צבע כתום לפי המלצות הסטטוס באפיון
+                            >
+                                חזור לבסיס 🏠
                             </button>
                         </div>
                     </div>

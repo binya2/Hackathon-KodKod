@@ -5,12 +5,13 @@ import AttackDrones from "./attackDrones";
 import Target from "./target";
 import { useState } from "react";
 import { MapController } from "./mapController";
+import ExplosionMarker from "./explosionMarker";
 
-export default function MapView({ data, manualDrone, setManualDrone }) {
+export default function MapView({ data, manualDrone, setManualDrone,explosionPos }) {
   let center
   if (data) {
     center = [data.recon_data[0].position
-    .lat, data.recon_data[0].position.lon];
+      .lat, data.recon_data[0].position.lon];
   }
   else {
     center = [31.7, 35.2];
@@ -19,10 +20,10 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
     return (
       <MapContainer center={center} zoom={13} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
+        {explosionPos && <ExplosionMarker position={explosionPos} />}
         {data && (
           <>
-            <ReconDrone data={data.recon_data} setManualDrone={setManualDrone}/>
+            <ReconDrone data={data.recon_data} setManualDrone={setManualDrone} />
             <AttackDrones data={data.attack_data} />
             <Target data={data.target_data} />
           </>
@@ -35,8 +36,8 @@ export default function MapView({ data, manualDrone, setManualDrone }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   drone_id: manualDrone.drone_id,
-                  lat:lat,
-                  lon,lon
+                  lat: lat,
+                  lon, lon
                 }),
               });
             } catch (err) {
