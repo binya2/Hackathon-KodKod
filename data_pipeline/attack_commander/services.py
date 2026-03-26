@@ -46,8 +46,7 @@ async def execute_engage(drone_id: str, target_id: str):
                 break
 
     if not recon_ready:
-        recons_log = [(d.get('drone_id'), d.get('assigned_target_id'), d.get('flight_status')) for d in recons]
-        await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range. Current recons: {recons_log}")
+        await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range.")
         raise HTTPException(status_code=400, detail="Forbidden: Cannot engage. Recon drone is deployed but hasn't arrived at the target yet.")
 
     # 2. Drone Validation
