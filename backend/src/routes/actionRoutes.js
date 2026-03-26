@@ -1,26 +1,39 @@
 import express from 'express';
-import { getCurrentState, handleEngage, handleNavigate, getDroneHistory, handleDeployDrone, handleAuto } from '../controllers/actionController.js';
-import { handleStrikeOrder } from "../controllers/attackController.js";
+import {
+    getCurrentState,
+    handleEngage,
+    handleManualMove,
+    handleDeployDrone,
+    handleResumeAuto,
+    handleNewTarget,
+    handleRecall,
+    getDroneHistory
+} from '../controllers/actionController.js';
 
 const router = express.Router();
 
+// 1. קבלת מצב נוכחי (Fallback ל-WebSocket)
 router.get('/state', getCurrentState);
 
-// פקודת תקיפה
+// 2. יצירת מטרה חדשה והזנקה אוטומטית (מהקליק על המפה)
+router.post('/new-target', handleNewTarget);
+
+// 3. אישור פקודת אש 
 router.post('/engage', handleEngage);
 
-// פקודת ניווט ידני
-router.post('/navigate', handleNavigate);
+// 4. הזנקה ידנית של רחפן ספציפי (Attack/Recon)
+router.post('/deploy', handleDeployDrone);
 
-router.post('/auto',handleAuto)
+// 5. פקודת חזרה לבסיס (Recall)
+router.post('/recall', handleRecall);
 
-// פקודת ה-Strike.  logic 
-router.post('/strike', handleStrikeOrder);
+// 6. השתלטות ידנית על מיקום הרחפן 
+router.post('/manual-move', handleManualMove);
 
-// שליפת היסטוריית מסלול של רחפן
-router.get('/history/:droneId', getDroneHistory);
+// 7. שחרור שליטה וחזרה לניהול אוטונומי
+router.post('/resume-auto', handleResumeAuto);
 
-// פקודה לשינוי מצב של רחפן ממצב שינה לתפקיד ששולחים בבקשה 
-router.post('/deploy_drone', handleDeployDrone);
+// 8. היסטוריית מסלול ממוקדת מטרה (לצביעת השובל)
+router.get('/history/:droneId/:targetId', getDroneHistory);
 
 export default router;
