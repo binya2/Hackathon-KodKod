@@ -21,24 +21,24 @@ TOPIC_DRONES = "commands.drones"
 redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
+def _parse_redis_hash(redis_hash_data: dict) -> list:
+    """Parses a Redis hash map (dict of JSON strings) into a list of dicts."""
+    parsed_data = []
+    for v in redis_hash_data.values():
+        try:
+            parsed_data.append(json.loads(v))
+        except Exception:
+            pass
+    return parsed_data
+
+
 async def _fetch_current_state():
     """Fetches targets and drones from Redis and formats them for the service."""
     targets_raw = await redis_client.hgetall("targets")
     drones_raw = await redis_client.hgetall("drones")
 
-    target_data = []
-    for v in targets_raw.values():
-        try:
-            target_data.append(json.loads(v))
-        except Exception:
-            pass
-
-    all_drones = []
-    for v in drones_raw.values():
-        try:
-            all_drones.append(json.loads(v))
-        except Exception:
-            pass
+    target_data = _parse_redis_hash(targets_raw)
+    all_drones = _parse_redis_hash(drones_raw)
 
     recon_data = [d for d in all_drones if d.get("role", "").lower() == "recon"]
     attack_data = [d for d in all_drones if d.get("role", "").lower() == "attack"]
@@ -50,18 +50,18 @@ async def _fetch_current_state():
     }
 
 
-async def execute_engage(drone_id: str, target_id: str):
-    state = await _fetch_current_state()
-
-    # 1. Target Validation
+def _validate_target_for_engage(state: dict, target_id: str):
     target = next((t for t in state.get("target_data", []) if t["target_id"] == target_id), None)
     if not target:
         raise HTTPException(status_code=404, detail=f"Target {target_id} not found.")
 
     if target.get("health", 0) <= 0:
         raise HTTPException(status_code=400, detail=f"Forbidden: Target {target_id} is already destroyed.")
+    return target
 
-    # 1.5 Recon Validation
+
+async def _validate_recon_for_engage(state: dict, target_id: str):
+    target = next((t for t in state.get("target_data", []) if t["target_id"] == target_id), None)
     recons = state.get("recon_data", [])
     recon_ready = False
     for d in recons:
@@ -98,7 +98,8 @@ async def execute_engage(drone_id: str, target_id: str):
         await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range.")
         raise HTTPException(status_code=400, detail="Forbidden: Cannot engage. Recon drone is deployed but hasn't arrived at the target yet.")
 
-    # 2. Drone Validation
+
+def _validate_attack_drone_for_engage(state: dict, target_id: str, drone_id: str):
     drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
                   if d["drone_id"] == drone_id), None)
 
@@ -116,6 +117,14 @@ async def execute_engage(drone_id: str, target_id: str):
 
     if drone.get("assigned_target_id") != target_id:
         raise HTTPException(status_code=400, detail="Forbidden: Drone is not assigned to this target.")
+
+
+async def execute_engage(drone_id: str, target_id: str):
+    state = await _fetch_current_state()
+
+    target = _validate_target_for_engage(state, target_id)
+    await _validate_recon_for_engage(state, target_id)
+    _validate_attack_drone_for_engage(state, target_id, drone_id)
 
     payload = {
         "drone_id": drone_id,

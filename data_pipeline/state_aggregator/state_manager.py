@@ -77,6 +77,26 @@ async def garbage_collect_dead_targets():
             logger.error(f"Error parsing target {target_id}: {e}")
 
 
+def _parse_drones_from_redis(drones_raw: dict) -> list:
+    drones = []
+    for v in drones_raw.values():
+        try:
+            drones.append(DroneTelemetry.model_validate_json(v))
+        except Exception as e:
+            logger.error(f"Error parsing drone telemetry: {e}")
+    return drones
+
+
+def _parse_targets_from_redis(targets_raw: dict) -> list:
+    targets = []
+    for v in targets_raw.values():
+        try:
+            targets.append(TargetTelemetry.model_validate_json(v))
+        except Exception as e:
+            logger.error(f"Error parsing target telemetry: {e}")
+    return targets
+
+
 async def get_world_state() -> WorldState:
     """Constructs and returns the current world state from Redis."""
     await garbage_collect_stale_drones()
@@ -85,19 +105,8 @@ async def get_world_state() -> WorldState:
     drones_raw = await redis_client.hgetall("drones")
     targets_raw = await redis_client.hgetall("targets")
 
-    drones = []
-    for v in drones_raw.values():
-        try:
-            drones.append(DroneTelemetry.model_validate_json(v))
-        except Exception as e:
-            logger.error(f"Error parsing drone telemetry: {e}")
-
-    targets = []
-    for v in targets_raw.values():
-        try:
-            targets.append(TargetTelemetry.model_validate_json(v))
-        except Exception as e:
-            logger.error(f"Error parsing target telemetry: {e}")
+    drones = _parse_drones_from_redis(drones_raw)
+    targets = _parse_targets_from_redis(targets_raw)
 
     world_state = WorldState()
     world_state.timestamp = datetime.now(timezone.utc)
