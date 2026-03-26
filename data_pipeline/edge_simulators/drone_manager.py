@@ -22,10 +22,11 @@ class DroneManager:
         if not drone:
             return
 
-        if topic == "commands.drones":
-            self._process_system_command(drone, cmd_data)
-        elif topic == "commands.attack":
+        action = cmd_data.get("action")
+        if action == "EXECUTE_STRIKE":
             self._process_attack_command(drone, cmd_data, producer)
+        else:
+            self._process_system_command(drone, cmd_data)
 
     def _process_system_command(self, drone: Drone, cmd: Dict[str, Any]):
         action = cmd.get("action")
@@ -66,7 +67,7 @@ class DroneManager:
             **strike_data,
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         }
-        producer.produce("events.payload_dropped", key=strike_data["drone_id"], value=json.dumps(event))
+        producer.produce("events.mission", key=strike_data["drone_id"], value=json.dumps(event))
 
     def update_all(self, dt: float, producer):
         for drone in self.drones:

@@ -4,10 +4,11 @@ from target_model import TargetState
 
 
 def handle_target_event(event_data: dict, topic: str, state: TargetState, producer):
-    if topic == "events.payload_dropped":
-        _process_hit(event_data, state, producer)
-    elif topic == "events.intel":
+    event_type = event_data.get("action") or event_data.get("event")
+    if event_type == "SPAWN_TARGET":
         _process_intel(event_data, state, producer)
+    elif event_type == "PAYLOAD_DROPPED":
+        _process_hit(event_data, state, producer)
 
 
 def _process_hit(event_data: dict, state: TargetState, producer):

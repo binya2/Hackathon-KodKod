@@ -6,18 +6,18 @@ from utils import COMMANDER_URL, get_state, print_result
 
 def calculate_distance(pos1, pos2):
     """מחשב מרחק במטרים בין שתי נקודות גיאוגרפיות."""
-    # המרה גסה ממעלות למטרים (1 מעלה ~= 111,139 מטר) [cite: 60-61]
+    # המרה גסה ממעלות למטרים (1 מעלה ~= 111,139 מטר)
     return math.sqrt((pos1['lat'] - pos2['lat']) ** 2 + (pos1['lon'] - pos2['lon']) ** 2) * 111139
 
 
 async def run_security_tests(client):
     print("\n=== שלב 1: בדיקות אבטחה וולידציה ===")
 
-    # 1. Pydantic Validation [cite: 208]
+    # 1. Pydantic Validation
     resp = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": 100.0, "lon": 35.0})
     print_result("הגנת קואורדינטות (Pydantic)", resp.status_code == 422)
 
-    # 2. Fake Target Protection [cite: 208]
+    # 2. Fake Target Protection
     payload = {"action": "engage", "target_id": "TGT-FAKE", "drone_id": "DRN-1"}
     resp_engage = await client.post(f"{COMMANDER_URL}/engage", json=payload)
     print_result("הגנה מפני מטרות פיקטיביות", resp_engage.status_code == 404)
@@ -31,6 +31,7 @@ async def run_mission_flow_tests(client):
     resp = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": target_lat, "lon": target_lon})
 
     if resp.status_code != 200:
+        print(f"סיבת שגיאה מהשרת: {resp.json()}")
         print_result("יצירת מטרה", False, "ה-API סירב ליצור מטרה")
         return
 
@@ -83,7 +84,7 @@ async def run_mission_flow_tests(client):
             status_icon = "🟢" if d['flight_status'] in ["ACTIVE", "ATTACKING"] else "🟡"
             role_tag = "🔭" if d['role'] == "recon" else "⚔️"
 
-            # הדפסה מפורטת לזיהוי רגע המעבר ל-ACTIVE ב-20 מטר [cite: 28]
+            # הדפסה מפורטת לזיהוי רגע המעבר ל-ACTIVE ב-20 מטר
             print(f"        {status_icon} {role_tag} {d['drone_id']} | "
                   f"סטטוס: {d['flight_status']:9} | "
                   f"מרחק: {dist:6.1f} מ' | "
@@ -104,7 +105,7 @@ async def run_mission_flow_tests(client):
 async def run_manual_override_tests(client):
     print("\n=== שלב 3: שליטה ידנית (Manual Override) ===")
 
-    # יצירת מטרה קרובה לשליטה מהירה [cite: 219]
+    # יצירת מטרה קרובה לשליטה מהירה
     resp = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.8008, "lon": 35.1008})
     target_id = resp.json().get("target_id")
 
@@ -124,7 +125,7 @@ async def run_manual_override_tests(client):
     drone_id = attacker["drone_id"]
     print(f"  🕹️ משתלט ידנית על רחפן {drone_id}...")
 
-    # פקודת תנועה ידנית [cite: 221]
+    # פקודת תנועה ידנית
     move_payload = {"drone_id": drone_id, "lat": 32.0, "lon": 34.0, "alt": 100}
     await client.post(f"{COMMANDER_URL}/manual_move", json=move_payload)
 

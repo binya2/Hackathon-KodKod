@@ -120,9 +120,10 @@ class Drone:
         delta_lon = self.target_lon - self.lon
 
         if dist > 0 and step > 0:
+            actual_step = min(step, dist)
             bearing = math.atan2(delta_lon, delta_lat)
-            self.lat += math.cos(bearing) * step
-            self.lon += math.sin(bearing) * step
+            self.lat += math.cos(bearing) * actual_step
+            self.lon += math.sin(bearing) * actual_step
             self.heading = math.degrees(bearing) % 360
 
         alt_step = 50.0 * dt

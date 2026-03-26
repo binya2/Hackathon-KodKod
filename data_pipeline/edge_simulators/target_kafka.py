@@ -18,5 +18,5 @@ def create_target_consumer(bootstrap_servers: str):
         "auto.offset.reset": "earliest", 
         "enable.auto.commit": True
     })
-    consumer.subscribe(["events.payload_dropped", "events.intel"])
+    consumer.subscribe(["events.mission"])
     return consumer

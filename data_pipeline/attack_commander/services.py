@@ -125,7 +125,7 @@ async def execute_engage(drone_id: str, target_id: str):
         "timestamp": iso8601_utc_now()
     }
 
-    await produce_message(TOPIC_COMMANDS, drone_id, payload)
+    await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload
 
 
@@ -160,7 +160,7 @@ async def spawn_target_with_swarm(lat: float, lon: float):
         "timestamp": iso8601_utc_now()
     }
 
-    await produce_message(TOPIC_INTEL, "", intel_payload)
+    await produce_message("events.mission", "", intel_payload)
     await _deploy_initial_swarm(target_id, lat, lon)
     await log_to_kafka("INFO", f"Spawned target {target_id} and deployed swarm.")
     return target_id, intel_payload
