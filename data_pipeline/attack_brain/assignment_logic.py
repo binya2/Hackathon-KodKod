@@ -43,7 +43,10 @@ async def assignment_loop(producer: AIOKafkaProducer):
                 await _request_replacement(target.target_id, producer)
 
         # 2. Drone-centric check: Process assignments
-        active_attack_drones = [d for d in all_drones if d.assigned_target_id and d.flight_status != "RETURNING"]
+        active_attack_drones = [
+            d for d in all_drones 
+            if d.assigned_target_id and d.flight_status not in ["RETURNING", "MANUAL", "SLEEP"]
+        ]
         for drone in active_attack_drones:
             await _process_drone_assignment(drone, producer, all_drones, active_targets)
 

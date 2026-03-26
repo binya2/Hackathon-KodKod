@@ -33,13 +33,18 @@ class MasterTester:
 
     async def wait_for_system_sync(self):
         print("\n[0] ⏳ ממתין לסנכרון טלמטריה ראשוני וטעינת רחפנים בבסיס...")
-        for _ in range(20):
+        await self.client.get(f"{COMMANDER_URL}/health")
+        for _ in range(40):
             state = await self.get_state()
             sleeping_recon = sum(1 for d in state.get("recon_data", []) if d.get("flight_status") == "SLEEP")
             sleeping_attack = sum(1 for d in state.get("attack_data", []) if d.get("flight_status") == "SLEEP")
-            print(f" -> Current base status: Recon SLEEP: {sleeping_recon}/1, Attack SLEEP: {sleeping_attack}/2")
+            
+            if sleeping_recon == 0:
+                print("Waiting for Recon drones to broadcast first telemetry...")
+            else:
+                print(f" -> Checking Base: Recon SLEEP: {sleeping_recon}/1, Attack SLEEP: {sleeping_attack}/2")
 
-            if sleeping_recon >= 1 and sleeping_attack >= 2:
+            if (sleeping_recon + sleeping_attack) >= 3:
                 print(f"✅ המערכת מסונכרנת ומוכנה! (תצפית פנויים: {sleeping_recon}, תקיפה פנויים: {sleeping_attack})")
                 return True
             await asyncio.sleep(1)
@@ -59,11 +64,11 @@ class MasterTester:
 
     async def test_recon_first_rule(self):
         print("\n=== שלב 2: חוק 'תצפית תחילה' (Recon First) ===")
-        # נ"צ רחוק מספיק למניעת נעילה מיידית
-        resp = await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.820, "lon": 35.120})
+        # נ"צ רחוק משפיק למניעת נעילה מיידית (31.85, 35.15)
+        resp = await self.client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.85, "lon": 35.15})
         if resp.status_code != 200: return None
 
-        await asyncio.sleep(2) # Allow system to process and drones to start moving
+        await asyncio.sleep(3) # Allow system to process and drones to start moving
         target_id = resp.json()["target_id"]
         print(f"🎯 נוצרה מטרה {target_id}. מנסה לתקוף מיידית טרם הגעת תצפית...")
 

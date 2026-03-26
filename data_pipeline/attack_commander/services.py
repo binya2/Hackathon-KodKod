@@ -3,6 +3,7 @@ import math
 import os
 import json
 import redis.asyncio as redis
+from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 
 from data_pipeline.attack_commander.kafka_client import (
@@ -67,9 +68,14 @@ async def execute_engage(drone_id: str, target_id: str):
         if d.get("assigned_target_id") == target_id and d.get("flight_status") == "ACTIVE":
             r_lat = d["position"]["lat"]
             r_lon = d["position"]["lon"]
-            dist = math.sqrt((r_lat - target["position"]["lat"])**2 + (r_lon - target["position"]["lon"])**2)
-            # 0.002 degrees is roughly 200 meters. The recon must be close!
-            if dist < 0.002:
+            t_lat = target["position"]["lat"]
+            t_lon = target["position"]["lon"]
+            
+            # Use same distance formula as the test (meters)
+            dist_m = math.sqrt((r_lat - t_lat)**2 + (r_lon - t_lon)**2) * 111139
+            
+            # Threshold: 200 meters
+            if dist_m < 200:
                 recon_ready = True
                 break
 
@@ -107,7 +113,8 @@ async def execute_engage(drone_id: str, target_id: str):
     # Optimistic Update!
     drone["flight_status"] = "ATTACKING"
     drone["weapons_count"] -= 1
-    drone["timestamp"] = iso8601_utc_now()
+    # Add 1s offset to timestamp to prevent telemetry overwrite
+    drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
     await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_COMMANDS, drone_id, payload)
@@ -165,7 +172,8 @@ async def execute_recall(drone_id: str):
     if drone:
         drone["flight_status"] = "RETURNING"
         drone["assigned_target_id"] = None
-        drone["timestamp"] = iso8601_utc_now()
+        # Add 1s offset to timestamp to prevent telemetry overwrite
+        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
@@ -187,7 +195,8 @@ async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float)
     if drone:
         drone["flight_status"] = "MANUAL"
         drone["assigned_target_id"] = None
-        drone["timestamp"] = iso8601_utc_now()
+        # Add 1s offset to timestamp to prevent telemetry overwrite
+        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
@@ -207,7 +216,8 @@ async def execute_resume_auto(drone_id: str):
 
     if drone:
         drone["flight_status"] = "ACTIVE"
-        drone["timestamp"] = iso8601_utc_now()
+        # Add 1s offset to timestamp to prevent telemetry overwrite
+        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)

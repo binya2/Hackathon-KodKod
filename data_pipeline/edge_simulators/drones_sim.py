@@ -20,6 +20,13 @@ def main():
     consumer = create_drone_consumer(args.kafka_bootstrap)
     manager = DroneManager(args.num_drones, BASE_LAT, BASE_LON)
 
+    for _ in range(5):
+        for drone in manager.drones:
+            telemetry = drone.to_telemetry()
+            producer.produce("telemetry.raw", key=drone.drone_id, value=telemetry.model_dump_json())
+        producer.flush()
+        time.sleep(0.5)
+
     print(f"[DroneSim] Running {args.num_drones} drones. Connected to {args.kafka_bootstrap}")
 
     try:

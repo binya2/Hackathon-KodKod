@@ -24,6 +24,7 @@ class Drone:
         self.flight_status = flight_status
         self.weapons_count = 5 if role == "attack" else 0
         self.assigned_target_id: Optional[str] = None
+        self.timestamp = datetime.now(timezone.utc)
 
     def update_waypoint(self, lat: float, lon: float, alt: float):
         self.target_lat = lat
@@ -35,21 +36,25 @@ class Drone:
             self.flight_status = "EN_ROUTE"
             self.assigned_target_id = target_id
             self.target_alt = 200.0 if self.role == "recon" else 100.0
+            self.timestamp = datetime.now(timezone.utc)
             print(f"[Drone] {self.drone_id} En route to target {self.assigned_target_id}")
 
     def recall(self):
         print(f"[Drone] {self.drone_id} recalling to base.")
         self.flight_status = "RETURNING"
         self.assigned_target_id = None
+        self.timestamp = datetime.now(timezone.utc)
         self.update_waypoint(BASE_LAT, BASE_LON, 0.0)
 
     def manual_move(self, lat: float, lon: float, alt: float):
         print(f"[Drone] {self.drone_id} manual move to {lat}, {lon}, {alt}")
         self.flight_status = "MANUAL"
         self.assigned_target_id = None
+        self.timestamp = datetime.now(timezone.utc)
         self.update_waypoint(lat, lon, alt)
 
     def tick(self, dt: float):
+        self.timestamp = datetime.now(timezone.utc)
         if self.flight_status == "SLEEP":
             self._handle_charging_and_reloading(dt)
             return
@@ -172,6 +177,7 @@ class Drone:
     def to_telemetry(self) -> DroneTelemetry:
         return DroneTelemetry(
             drone_id=self.drone_id,
+            timestamp=self.timestamp,
             role=self.role,
             position=GeoPoint(lat=self.lat, lon=self.lon, alt=self.alt),
             velocity=self.velocity,

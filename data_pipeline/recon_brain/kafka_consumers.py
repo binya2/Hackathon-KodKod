@@ -2,7 +2,7 @@ import json
 import logging
 import uuid
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import AsyncIterable, Dict
 from aiokafka import AIOKafkaProducer
 
@@ -42,10 +42,10 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
 
-                    # Optimistic update
+                    # Optimistic update with offset to prevent override by old telemetry
                     drone.flight_status = "RETURNING"
                     drone.assigned_target_id = None
-                    drone.timestamp = datetime.now(timezone.utc)
+                    drone.timestamp = datetime.now(timezone.utc) + timedelta(seconds=1)
                     await update_drone_telemetry(drone)
                 continue
 

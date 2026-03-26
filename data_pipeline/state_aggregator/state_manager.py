@@ -17,13 +17,13 @@ async def update_drone_telemetry(telemetry: DroneTelemetry):
         try:
             existing_drone = DroneTelemetry.model_validate_json(existing_json)
 
-            # Convert both to UTC-aware datetimes
-            t_new = telemetry.timestamp.replace(tzinfo=timezone.utc) if telemetry.timestamp.tzinfo is None else telemetry.timestamp.astimezone(timezone.utc)
-            t_old = existing_drone.timestamp.replace(tzinfo=timezone.utc) if existing_drone.timestamp.tzinfo is None else existing_drone.timestamp.astimezone(timezone.utc)
+            # Convert both to float timestamps for precise comparison
+            t_new = telemetry.timestamp.timestamp()
+            t_old = existing_drone.timestamp.timestamp()
 
-            # IF telemetry.timestamp <= existing_drone.timestamp, DROP the message
-            if t_new <= t_old:
-                logger.warning(f"Dropping stale telemetry for {telemetry.drone_id}")
+            # IF telemetry.timestamp <= (existing_drone.timestamp + 0.1), DROP the message
+            # Added 0.1 epsilon to handle near-simultaneous updates and prioritize API commands
+            if t_new <= (t_old + 0.1):
                 return # Ignore older telemetry
         except Exception:
             pass # If parsing fails, proceed with update
