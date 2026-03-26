@@ -18,7 +18,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: '*',
+        origin: 'http://localhost:8000',
         methods: ['GET', 'POST']
     }
 });
@@ -56,6 +56,6 @@ httpServer.listen(port, () => {
 import { getMockData } from './mock/initialData.js';
 
 setInterval(() => {
-    const freshData = getMockData();
+    const freshData = "http://localhost:8002";
     handleIncomingTelemetry(freshData);
 }, 500);
