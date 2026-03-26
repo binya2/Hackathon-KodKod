@@ -45,9 +45,25 @@ async def garbage_collect_stale_drones():
             await redis_client.hdel("drones", drone_id)
 
 
+async def garbage_collect_dead_targets():
+    """Removes dead targets from Redis after 30 seconds."""
+    now = datetime.now(timezone.utc)
+    targets_raw = await redis_client.hgetall("targets")
+
+    for target_id, target_json in targets_raw.items():
+        try:
+            target = TargetTelemetry.model_validate_json(target_json)
+            if target.health <= 0 and (now - target.timestamp).total_seconds() > 30.0:
+                logger.info(f"Removing dead target %s from state (dead for >30s)", target_id)
+                await redis_client.hdel("targets", target_id)
+        except Exception as e:
+            logger.error(f"Error parsing target {target_id}: {e}")
+
+
 async def get_world_state() -> WorldState:
     """Constructs and returns the current world state from Redis."""
     await garbage_collect_stale_drones()
+    await garbage_collect_dead_targets()
 
     drones_raw = await redis_client.hgetall("drones")
     targets_raw = await redis_client.hgetall("targets")

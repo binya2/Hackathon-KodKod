@@ -92,9 +92,9 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
 
 async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get("target_id")
-    active_recon = await get_active_recon_drones()
+    sleeping_recon = await get_sleeping_recon_drones()
 
-    if len(active_recon) < 5:
+    if len(sleeping_recon) > 0:
         await _wake_up_recon_drone(target_id, producer)
     else:
         await _handle_capacity_limit(data, producer, running_in_k8s)
@@ -103,8 +103,7 @@ async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, runni
 async def _wake_up_recon_drone(target_id: str, producer: AIOKafkaProducer):
     sleeping_recon = await get_sleeping_recon_drones()
     if not sleeping_recon:
-        logger.warning("[DEPLOY] No sleeping recon drones available.")
-        return
+        return # Double check to avoid race condition
 
     target_drone = sleeping_recon[0]
     target_drone.flight_status = "ACTIVE"

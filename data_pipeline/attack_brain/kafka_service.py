@@ -32,9 +32,9 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
 
 async def _handle_attack_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get("target_id")
-    active_attack_drones = await get_active_attack_drones()
+    sleeping_drones = await get_sleeping_attack_drones()
 
-    if len(active_attack_drones) < 5:
+    if len(sleeping_drones) > 0:
         await _wake_up_attack_drone(target_id, producer)
     else:
         await _handle_attack_capacity_limit(data, producer, running_in_k8s)
@@ -43,8 +43,7 @@ async def _handle_attack_deployment(data: dict, producer: AIOKafkaProducer, runn
 async def _wake_up_attack_drone(target_id: str, producer: AIOKafkaProducer):
     sleeping_drones = await get_sleeping_attack_drones()
     if not sleeping_drones:
-        logger.warning("[DEPLOY] No sleeping attack drones available.")
-        return
+        return # Double check to avoid race condition
 
     target_drone = sleeping_drones[0]
     target_drone.flight_status = "ACTIVE"
