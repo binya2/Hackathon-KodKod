@@ -161,7 +161,7 @@ async def spawn_target_with_swarm(lat: float, lon: float):
     }
 
     await produce_message(TOPIC_INTEL, "", intel_payload)
-    await _deploy_initial_swarm(target_id)
+    await _deploy_initial_swarm(target_id, lat, lon)
     await log_to_kafka("INFO", f"Spawned target {target_id} and deployed swarm.")
     return target_id, intel_payload
 
@@ -231,20 +231,14 @@ async def _validate_available_resources(state: dict):
         raise HTTPException(status_code=400, detail=msg)
 
 
-async def _deploy_initial_swarm(target_id: str):
-    state = await _fetch_current_state()
-    target = next((t for t in state.get("target_data", []) if t["target_id"] == target_id), None)
-    
-    if not target:
-        return
-
+async def _deploy_initial_swarm(target_id: str, lat: float, lon: float):
     deployments = [{"role": "recon"}, {"role": "attack"}, {"role": "attack"}]
     for dep in deployments:
         payload = {
             "action": "DEPLOY_DRONE",
             "role": dep["role"],
             "target_id": target_id,
-            "position": target["position"],
+            "position": {"lat": lat, "lon": lon},
             "timestamp": iso8601_utc_now()
         }
         await produce_message(TOPIC_DEPLOYMENT, str(uuid.uuid4()), payload)

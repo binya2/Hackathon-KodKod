@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import redis.asyncio as redis
@@ -11,8 +12,33 @@ redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), 
 
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
-    """Updates Redis with new drone telemetry."""
-    await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
+    """Updates Redis with new drone telemetry, with Ghost Telemetry (Delayed SLEEP) Protection."""
+    current_raw = await redis_client.hget("drones", telemetry.drone_id)
+
+    if current_raw:
+        current_data = json.loads(current_raw)
+        new_data = telemetry.model_dump(mode='json')
+
+        # Detect "Ghost SLEEP": Simulator sends SLEEP after Brain already set mission status
+        is_ghost_sleep = (
+            current_data.get("flight_status") in ["EN_ROUTE", "ACTIVE", "ATTACKING"] and
+            new_data.get("flight_status") == "SLEEP"
+        )
+
+        if is_ghost_sleep:
+            # Update only physical fields, preserve Brain's mission status/assignment
+            current_data["position"] = new_data["position"]
+            current_data["velocity"] = new_data["velocity"]
+            current_data["heading"] = new_data["heading"]
+            current_data["battery_percent"] = new_data["battery_percent"]
+            current_data["timestamp"] = new_data["timestamp"]
+            await redis_client.hset("drones", telemetry.drone_id, json.dumps(current_data))
+        else:
+            # Full update allowed (including ACTIVE, ATTACKING, CRASHED, or fresh SLEEP)
+            await redis_client.hset("drones", telemetry.drone_id, json.dumps(new_data))
+    else:
+        # No existing state, save incoming telemetry as is
+        await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
 
 
 async def update_target_telemetry(telemetry: TargetTelemetry):
