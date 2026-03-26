@@ -244,12 +244,19 @@ async def _validate_available_resources(state: dict):
 
 
 async def _deploy_initial_swarm(target_id: str):
+    state = await _fetch_current_state()
+    target = next((t for t in state.get("target_data", []) if t["target_id"] == target_id), None)
+    
+    if not target:
+        return
+
     deployments = [{"role": "recon"}, {"role": "attack"}, {"role": "attack"}]
     for dep in deployments:
         payload = {
             "action": "DEPLOY_DRONE",
             "role": dep["role"],
             "target_id": target_id,
+            "position": target["position"],
             "timestamp": iso8601_utc_now()
         }
         await produce_message(TOPIC_DEPLOYMENT, str(uuid.uuid4()), payload)

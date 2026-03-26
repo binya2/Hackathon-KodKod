@@ -128,7 +128,11 @@ async def _send_wake_up_commands(drone: DroneTelemetry, target_id: str, producer
     wake_cmd = {
         "drone_id": drone.drone_id,
         "action": "WAKE_UP",
-        "target_id": target_id
+        "target_id": target_id,
+        "position": {
+            "lat": drone.position.lat,
+            "lon": drone.position.lon
+        }
     }
     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
     await producer.send_and_wait("telemetry.raw", drone.model_dump_json().encode("utf-8"))

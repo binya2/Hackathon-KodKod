@@ -11,18 +11,7 @@ redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), 
 
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
-    """Updates Redis with new drone telemetry, ensuring we don't overwrite newer data."""
-    existing_json = await redis_client.hget("drones", telemetry.drone_id)
-    if existing_json:
-        try:
-            existing_drone = DroneTelemetry.model_validate_json(existing_json)
-
-            # Strict logical check: if incoming is older than what we have, drop it.
-            if telemetry.timestamp < existing_drone.timestamp:
-                return
-        except Exception:
-            pass # If parsing fails, proceed with update
-
+    """Updates Redis with new drone telemetry."""
     await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
 
 

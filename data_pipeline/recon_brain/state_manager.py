@@ -17,16 +17,6 @@ async def update_target(target: TargetTelemetry):
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
     """Updates Redis with new drone telemetry."""
-    existing_json = await redis_client.hget("drones", telemetry.drone_id)
-    if existing_json:
-        try:
-            existing_drone = DroneTelemetry.model_validate_json(existing_json)
-            # Timestamp Lock: Ignore update if existing data is newer
-            if telemetry.timestamp.timestamp() <= (existing_drone.timestamp.timestamp() + 0.001):
-                return
-        except Exception:
-            pass
-            
     await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
 
 
