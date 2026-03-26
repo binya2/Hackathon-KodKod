@@ -59,6 +59,9 @@ class DroneManager:
             if drone.flight_status != "ATTACKING":
                 pos = cmd.get("position", {})
                 drone.update_waypoint(pos.get("lat"), pos.get("lon"), pos.get("alt", drone.alt))
+                # Adopt the flight_status provided in the incoming Kafka message payload
+                if "flight_status" in cmd:
+                    drone.flight_status = cmd["flight_status"]
 
     def _process_attack_command(self, drone: Drone, cmd: Dict[str, Any], producer):
         # Explicit check: Only 'attack' drones are allowed to execute strikes.

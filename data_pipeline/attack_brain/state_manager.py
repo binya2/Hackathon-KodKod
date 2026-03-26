@@ -41,7 +41,17 @@ async def get_active_targets() -> List[TargetTelemetry]:
 
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
-    """Adds or updates a drone's telemetry in Redis."""
+    """Adds or updates a drone's telemetry in Redis, respecting Timestamp Lock."""
+    existing_json = await redis_client.hget("drones", telemetry.drone_id)
+    if existing_json:
+        try:
+            existing_drone = DroneTelemetry.model_validate_json(existing_json)
+            # Timestamp Lock: Ignore update if existing data is newer
+            if telemetry.timestamp.timestamp() <= (existing_drone.timestamp.timestamp() + 0.001):
+                return
+        except Exception:
+            pass
+
     await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
 
 
@@ -52,7 +62,7 @@ async def get_active_attack_drones() -> List[DroneTelemetry]:
     for v in drones_raw.values():
         try:
             d = DroneTelemetry.model_validate_json(v)
-            if d.role.lower() == "attack" and d.flight_status == "ACTIVE":
+            if d.role.lower() == "attack" and d.flight_status in ["ACTIVE", "ATTACKING", "EN_ROUTE"]:
                 active_attack.append(d)
         except Exception:
             pass

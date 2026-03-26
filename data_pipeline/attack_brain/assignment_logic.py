@@ -36,18 +36,21 @@ async def assignment_loop(producer: AIOKafkaProducer):
                 continue
             assigned_count = sum(
                 1 for d in all_drones
-                if d.assigned_target_id == target.target_id and d.flight_status in ["ACTIVE", "ATTACKING"]
+                if d.assigned_target_id == target.target_id and d.flight_status in ["ACTIVE", "ATTACKING", "EN_ROUTE"]
             )
             if assigned_count < 2:
                 logger.info(f"[ASSIGN] Target {target.target_id} has {assigned_count} drones. Requesting replacement...")
                 await _request_replacement(target.target_id, producer)
 
         # 2. Drone-centric check: Process assignments
-        active_attack_drones = [
-            d for d in all_drones 
-            if d.assigned_target_id and d.flight_status not in ["RETURNING", "MANUAL", "SLEEP"]
-        ]
-        for drone in active_attack_drones:
+        for drone in all_drones:
+            # MANUAL status check: skip autonomous waypoint generation for manual drones
+            if drone.flight_status == "MANUAL":
+                continue
+
+            if not drone.assigned_target_id or drone.flight_status in ["RETURNING", "SLEEP"]:
+                continue
+
             await _process_drone_assignment(drone, producer, all_drones, active_targets)
 
         await asyncio.sleep(2.0)
@@ -61,7 +64,7 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
         new_target = next(
             (t for t in active_targets if sum(
                 1 for d in all_drones
-                if d.assigned_target_id == t.target_id and d.flight_status in ["ACTIVE", "ATTACKING"]
+                if d.assigned_target_id == t.target_id and d.flight_status in ["ACTIVE", "ATTACKING", "EN_ROUTE"]
             ) < 2),
             None
         )
@@ -86,7 +89,7 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
         replacement_already_sent = any(
             d.assigned_target_id == drone.assigned_target_id and
             d.drone_id != drone.drone_id and
-            d.flight_status in ["ACTIVE", "ATTACKING"]
+            d.flight_status in ["ACTIVE", "ATTACKING", "EN_ROUTE"]
             for d in all_drones
         )
 
@@ -135,7 +138,16 @@ async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
         index = 0
 
     waypoint = _calculate_waypoint(target.position, index)
-    cmd = DroneCommand(drone_id=drone.drone_id, position=waypoint)
+    
+    # Calculate distance for dynamic status (20-meter precision threshold)
+    dist = math.sqrt((drone.position.lat - target.position.lat)**2 + (drone.position.lon - target.position.lon)**2)
+    command_status = "ACTIVE" if dist <= 0.0002 else "EN_ROUTE"
+    
+    cmd = DroneCommand(
+        drone_id=drone.drone_id, 
+        position=waypoint,
+        flight_status=command_status
+    )
     await producer.send_and_wait("commands.drones", cmd.model_dump_json().encode("utf-8"))
 
 

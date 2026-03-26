@@ -65,19 +65,34 @@ async def execute_engage(drone_id: str, target_id: str):
     recons = state.get("recon_data", [])
     recon_ready = False
     for d in recons:
-        if d.get("assigned_target_id") == target_id and d.get("flight_status") == "ACTIVE":
-            r_lat = d["position"]["lat"]
-            r_lon = d["position"]["lon"]
-            t_lat = target["position"]["lat"]
-            t_lon = target["position"]["lon"]
-            
-            # Use same distance formula as the test (meters)
-            dist_m = math.sqrt((r_lat - t_lat)**2 + (r_lon - t_lon)**2) * 111139
-            
-            # Threshold: 200 meters
-            if dist_m < 200:
-                recon_ready = True
-                break
+        if d.get("assigned_target_id") == target_id:
+            # Explicit Redis refresh to get the most recent position directly
+            recon_id = d["drone_id"]
+            recon_json = await redis_client.hget("drones", recon_id)
+            if recon_json:
+                recon_data = json.loads(recon_json)
+                
+                # Add logical guard: check assigned_target_id in Redis
+                if recon_data.get("assigned_target_id") != target_id:
+                    raise HTTPException(status_code=400, detail="Recon drone not locked on target")
+
+                # Check that flight status is ACTIVE or ATTACKING
+                if recon_data.get("flight_status") in ["ACTIVE", "ATTACKING"]:
+                    r_lat = recon_data["position"]["lat"]
+                    r_lon = recon_data["position"]["lon"]
+                    t_lat = target["position"]["lat"]
+                    t_lon = target["position"]["lon"]
+                    
+                    # Use same distance formula as the test (meters)
+                    dist_m = math.sqrt((r_lat - t_lat)**2 + (r_lon - t_lon)**2) * 111139
+                    
+                    # Log the calculated distance to Kafka for debugging
+                    await log_to_kafka("DEBUG", f"Engage Check: Target {target_id}, Recon {recon_id}, Distance: {dist_m:.2f}m")
+
+                    # Threshold: 200 meters. Strict limit.
+                    if dist_m <= 200:
+                        recon_ready = True
+                        break
 
     if not recon_ready:
         await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range.")
@@ -113,8 +128,7 @@ async def execute_engage(drone_id: str, target_id: str):
     # Optimistic Update!
     drone["flight_status"] = "ATTACKING"
     drone["weapons_count"] -= 1
-    # Add 1s offset to timestamp to prevent telemetry overwrite
-    drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+    drone["timestamp"] = iso8601_utc_now()
     await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_COMMANDS, drone_id, payload)
@@ -159,21 +173,19 @@ async def spawn_target_with_swarm(lat: float, lon: float):
 
 
 async def execute_recall(drone_id: str):
-    state = await _fetch_current_state()
-    drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
-                  if d["drone_id"] == drone_id), None)
-
+    # Fetch latest drone state from Redis to ensure we only update flight_status and timestamp
+    drone_raw = await redis_client.hget("drones", drone_id)
+    
     payload = {
         "drone_id": drone_id,
         "action": "RECALL_DRONE",
         "timestamp": iso8601_utc_now()
     }
 
-    if drone:
+    if drone_raw:
+        drone = json.loads(drone_raw)
         drone["flight_status"] = "RETURNING"
-        drone["assigned_target_id"] = None
-        # Add 1s offset to timestamp to prevent telemetry overwrite
-        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+        drone["timestamp"] = iso8601_utc_now()
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
@@ -181,10 +193,9 @@ async def execute_recall(drone_id: str):
 
 
 async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float):
-    state = await _fetch_current_state()
-    drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
-                  if d["drone_id"] == drone_id), None)
-
+    # Fetch latest drone state from Redis to ensure we only update flight_status and timestamp
+    drone_raw = await redis_client.hget("drones", drone_id)
+    
     payload = {
         "drone_id": drone_id,
         "action": "MANUAL_MOVE",
@@ -192,11 +203,10 @@ async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float)
         "timestamp": iso8601_utc_now()
     }
 
-    if drone:
+    if drone_raw:
+        drone = json.loads(drone_raw)
         drone["flight_status"] = "MANUAL"
-        drone["assigned_target_id"] = None
-        # Add 1s offset to timestamp to prevent telemetry overwrite
-        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+        drone["timestamp"] = iso8601_utc_now()
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
@@ -216,8 +226,7 @@ async def execute_resume_auto(drone_id: str):
 
     if drone:
         drone["flight_status"] = "ACTIVE"
-        # Add 1s offset to timestamp to prevent telemetry overwrite
-        drone["timestamp"] = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+        drone["timestamp"] = iso8601_utc_now()
         await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)

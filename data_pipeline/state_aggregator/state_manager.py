@@ -17,14 +17,9 @@ async def update_drone_telemetry(telemetry: DroneTelemetry):
         try:
             existing_drone = DroneTelemetry.model_validate_json(existing_json)
 
-            # Convert both to float timestamps for precise comparison
-            t_new = telemetry.timestamp.timestamp()
-            t_old = existing_drone.timestamp.timestamp()
-
-            # IF telemetry.timestamp <= (existing_drone.timestamp + 0.1), DROP the message
-            # Added 0.1 epsilon to handle near-simultaneous updates and prioritize API commands
-            if t_new <= (t_old + 0.1):
-                return # Ignore older telemetry
+            # Strict logical check: if incoming is older than what we have, drop it.
+            if telemetry.timestamp < existing_drone.timestamp:
+                return
         except Exception:
             pass # If parsing fails, proceed with update
 

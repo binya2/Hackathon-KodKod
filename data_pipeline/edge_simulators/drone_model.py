@@ -55,6 +55,7 @@ class Drone:
 
     def tick(self, dt: float):
         self.timestamp = datetime.now(timezone.utc)
+
         if self.flight_status == "SLEEP":
             self._handle_charging_and_reloading(dt)
             return
@@ -62,18 +63,12 @@ class Drone:
         self._handle_movement(dt)
         self._check_battery_and_crash(dt)
         self._check_arrival_at_base()
-        self._check_arrival_at_target()
 
         return self._check_strike_condition()
 
     def _check_arrival_at_target(self):
-        """Transition from EN_ROUTE to ACTIVE when close to target."""
-        if self.flight_status == "EN_ROUTE":
-            dist = math.sqrt((self.lat - self.target_lat) ** 2 + (self.lon - self.target_lon) ** 2)
-            # 0.0002 degrees is approx 22 meters
-            if dist < 0.0002:
-                print(f"✅ [Drone] {self.drone_id} arrived at target and is now ACTIVE.")
-                self.flight_status = "ACTIVE"
+        """No longer used. Brain dictates the status."""
+        pass
 
     def _check_strike_condition(self) -> Optional[dict]:
         if self.flight_status != "ATTACKING" or not self.assigned_target_id:

@@ -33,19 +33,22 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 continue
 
             if target.health <= 0:
+                # Identify all relevant drones for the destroyed target
                 active_recon = await get_active_recon_drone_for_target(target.target_id)
                 for drone in active_recon:
                     logger.info(f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
+                    
+                    # 1. Send Recall Command
                     recall_cmd = {
                         "drone_id": drone.drone_id,
                         "action": "RECALL_DRONE"
                     }
                     await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
 
-                    # Optimistic update with offset to prevent override by old telemetry
+                    # 2. Immediately update Redis (Optimistic State)
                     drone.flight_status = "RETURNING"
                     drone.assigned_target_id = None
-                    drone.timestamp = datetime.now(timezone.utc) + timedelta(seconds=1)
+                    drone.timestamp = datetime.now(timezone.utc)
                     await update_drone_telemetry(drone)
                 continue
 
@@ -57,6 +60,10 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 if now - last_time < 1.0:
                     continue
 
+                # Calculate distance for dynamic status
+                dist = math.sqrt((drone.position.lat - target.position.lat)**2 + (drone.position.lon - target.position.lon)**2)
+                command_status = "EN_ROUTE" if dist > 0.002 else "ACTIVE"
+
                 # Standoff offset for recon: approx 15m East and 15m North
                 # This ensures they aren't directly overhead
                 nav_cmd = NavigationCommand(
@@ -66,7 +73,8 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                         lon=target.position.lon + 0.00015,
                         alt=RECON_ALTITUDE_OFFSET + (i * 10.0)
                     ),
-                    priority=2
+                    priority=2,
+                    flight_status=command_status
                 )
                 await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
                 _last_recon_nav_command_time[drone.drone_id] = now

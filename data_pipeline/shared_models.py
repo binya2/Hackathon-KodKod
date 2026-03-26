@@ -57,11 +57,13 @@ class NavigationCommand(BaseModel):
     drone_id: str
     position: GeoPoint
     priority: int = 1
+    flight_status: Optional[str] = None
 
 
 class DroneCommand(BaseModel):
     drone_id: str
     position: GeoPoint
+    flight_status: Optional[str] = None
 
 
 # %% State Aggregator Models
