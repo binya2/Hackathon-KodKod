@@ -11,7 +11,6 @@ from data_pipeline.attack_brain.state_manager import (
     get_target,
     get_active_targets,
     get_drones_on_target,
-    update_drone_telemetry,
 )
 from data_pipeline.shared_models import GeoPoint, DroneCommand
 
@@ -58,8 +57,6 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
         if new_target:
             logger.info(
                 f"[RE-ASSIGN] Drone {drone.drone_id} moved from dead {drone.assigned_target_id} to {new_target.target_id}")
-            drone.assigned_target_id = new_target.target_id
-            await update_drone_telemetry(drone)
             target = new_target
         else:
             await _recall_drone(drone.drone_id, producer)
@@ -78,8 +75,6 @@ async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drone
 
         logger.info(f"[AMMO] Recalling empty drone {drone.drone_id}...")
         await _recall_drone(drone_id=drone.drone_id, producer=producer)
-        drone.flight_status = "RETURNING"
-        await update_drone_telemetry(drone)
         return
 
     await _send_drone_waypoint(drone, target, producer)
@@ -119,12 +114,6 @@ async def _send_drone_waypoint(drone, target, producer: AIOKafkaProducer):
         flight_status=command_status
     )
     await producer.send_and_wait("commands.drones", cmd.model_dump_json().encode("utf-8"))
-
-    # Update the drone's status in Redis immediately
-    if drone.flight_status != command_status:
-        drone.flight_status = command_status
-        drone.timestamp = datetime.now(timezone.utc)
-        await update_drone_telemetry(drone)
 
 
 def _calculate_waypoint(target_pos, index: int) -> GeoPoint:

@@ -6,7 +6,6 @@ from typing import AsyncIterable
 from aiokafka import AIOKafkaProducer
 
 from data_pipeline.attack_brain.state_manager import (
-    update_drone_telemetry,
     get_active_attack_drones,
     get_sleeping_attack_drones,
 )
@@ -46,10 +45,6 @@ async def _wake_up_attack_drone(target_id: str, producer: AIOKafkaProducer):
         return # Double check to avoid race condition
 
     target_drone = sleeping_drones[0]
-    target_drone.flight_status = "EN_ROUTE"
-    target_drone.assigned_target_id = target_id
-    target_drone.timestamp = datetime.now(timezone.utc)
-    await update_drone_telemetry(target_drone)
 
     await _send_attack_wake_up_commands(target_drone, target_id, producer)
     logger.info("[DEPLOY] Waking up %s for target %s", target_drone.drone_id, target_id)
@@ -62,7 +57,6 @@ async def _send_attack_wake_up_commands(drone: DroneTelemetry, target_id: str, p
         "target_id": target_id,
     }
     await producer.send_and_wait("commands.drones", json.dumps(wake_cmd).encode("utf-8"))
-    await producer.send_and_wait("telemetry.raw", drone.model_dump_json().encode("utf-8"))
 
 
 async def _handle_attack_capacity_limit(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):

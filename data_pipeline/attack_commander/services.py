@@ -125,12 +125,6 @@ async def execute_engage(drone_id: str, target_id: str):
         "timestamp": iso8601_utc_now()
     }
 
-    # Optimistic Update!
-    drone["flight_status"] = "ATTACKING"
-    drone["weapons_count"] -= 1
-    drone["timestamp"] = iso8601_utc_now()
-    await redis_client.hset("drones", drone_id, json.dumps(drone))
-
     await produce_message(TOPIC_COMMANDS, drone_id, payload)
     return payload
 
@@ -173,41 +167,37 @@ async def spawn_target_with_swarm(lat: float, lon: float):
 
 
 async def execute_recall(drone_id: str):
-    # Fetch latest drone state from Redis to ensure we only update flight_status and timestamp
-    drone_raw = await redis_client.hget("drones", drone_id)
-    
+    state = await _fetch_current_state()
+    drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
+                  if d["drone_id"] == drone_id), None)
+
+    if not drone:
+        raise HTTPException(status_code=404, detail=f"Drone {drone_id} not found.")
+
     payload = {
         "drone_id": drone_id,
         "action": "RECALL_DRONE",
         "timestamp": iso8601_utc_now()
     }
 
-    if drone_raw:
-        drone = json.loads(drone_raw)
-        drone["flight_status"] = "RETURNING"
-        drone["timestamp"] = iso8601_utc_now()
-        await redis_client.hset("drones", drone_id, json.dumps(drone))
-
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload
 
 
 async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float):
-    # Fetch latest drone state from Redis to ensure we only update flight_status and timestamp
-    drone_raw = await redis_client.hget("drones", drone_id)
-    
+    state = await _fetch_current_state()
+    drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
+                  if d["drone_id"] == drone_id), None)
+
+    if not drone:
+        raise HTTPException(status_code=404, detail=f"Drone {drone_id} not found.")
+
     payload = {
         "drone_id": drone_id,
         "action": "MANUAL_MOVE",
         "position": {"lat": lat, "lon": lon, "alt": alt},
         "timestamp": iso8601_utc_now()
     }
-
-    if drone_raw:
-        drone = json.loads(drone_raw)
-        drone["flight_status"] = "MANUAL"
-        drone["timestamp"] = iso8601_utc_now()
-        await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload
@@ -218,16 +208,14 @@ async def execute_resume_auto(drone_id: str):
     drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
                   if d["drone_id"] == drone_id), None)
 
+    if not drone:
+        raise HTTPException(status_code=404, detail=f"Drone {drone_id} not found.")
+
     payload = {
         "drone_id": drone_id,
         "action": "RESUME_AUTO",
         "timestamp": iso8601_utc_now()
     }
-
-    if drone:
-        drone["flight_status"] = "ACTIVE"
-        drone["timestamp"] = iso8601_utc_now()
-        await redis_client.hset("drones", drone_id, json.dumps(drone))
 
     await produce_message(TOPIC_DRONES, drone_id, payload)
     return payload

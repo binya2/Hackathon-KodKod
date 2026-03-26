@@ -10,16 +10,6 @@ logger = logging.getLogger(__name__)
 redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
-async def update_target(target: TargetTelemetry):
-    """Adds or updates a target in Redis."""
-    await redis_client.hset("targets", target.target_id, target.model_dump_json())
-
-
-async def update_drone_telemetry(telemetry: DroneTelemetry):
-    """Updates Redis with new drone telemetry."""
-    await redis_client.hset("drones", telemetry.drone_id, telemetry.model_dump_json())
-
-
 async def get_active_recon_drones() -> List[DroneTelemetry]:
     """Returns a list of active recon drones from Redis."""
     drones_raw = await redis_client.hgetall("drones")
