@@ -36,7 +36,6 @@ export default function App() {
         }),
       });
       const target = data.target_data.find((t) => t.target_id === currentTargetId)
-
       if (target) {
         setExplosionPos({
           lat: target.position.lat,

@@ -2,7 +2,7 @@ import State from '../models/stateModel.js';
 
 export const handleEngage = async (req, res) => {
     const { action, target_id, drone_id } = req.body;
-
+    console.log(action, target_id, drone_id);
     if (!action) return res.status(400).json({ status: 'error', message: 'Missing field: action' });
     if (!target_id) return res.status(400).json({ status: 'error', message: 'Missing field: target_id' });
     if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
@@ -18,7 +18,7 @@ export const handleEngage = async (req, res) => {
         });
 
         const data = await response.json();
-
+         console.log(data);
         return res.status(200).json({
             status: 'success',
             message: `Engage command for ${drone_id} received and relayed to tactical engine`,
@@ -114,6 +114,7 @@ try{
             })
         });
         const data = await response.json();
+        console.log(data);
         return res.status(200).json({
             status: 'success',
             message: 'Navigation update successful',

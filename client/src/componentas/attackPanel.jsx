@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMission, onRecall, onManualDeploy }) {
     if (!data) return <div className="side-panel">ממתין לנתונים...</div>;
-
+    const [count,setCount] = useState(20)
     const reconDrones = data.recon_data || [];
     const attackDrones = data.attack_data || [];
+    if(attackDrones.length > 0 && !attackDrones.weapons_count){
+        attackDrones.forEach((t)=>{
+            t["weapons_count"] = count
+        })
+    }
 
     return (
         <div className="side-panel" style={{
@@ -71,11 +76,15 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
                                 הזנק למטרה 🚀
                             </button>
                             <button
-                                onClick={() => onEngage(drone.drone_id)}
-
-                                style={btnStyle('#f44336')}
+                                onClick={() => {onEngage(drone.drone_id)
+                                setCount(count - 1)
+                                
+                                }
+                                }
+                                disabled={drone.weapons_count === 0}
+                                style={btnStyle('#f44336', drone.weapons_count === 0)}
                             >
-                                תקוף ({drone.weapons_count || 0})
+                                תקוף ({drone.weapons_count})
                             </button>
                             <button
                                 onClick={() => onRecall(drone.drone_id)}
