@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import actionRoutes from "./routes/actionRoutes.js";
 import cors from 'cors';
 import { processMissionData } from './services/cvEngine.js';
+import WebSocket from 'ws';
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: 'http://localhost:8000',
+        origin: 'http://localhost:5173',
         methods: ['GET', 'POST']
     }
 });
@@ -27,7 +28,6 @@ const port = process.env.PORT || 3001;
 
 io.on("connection", (socket) => {
     console.log(`Client connected to mission control: ${socket.id}`);
-
     socket.emit("conection_success", { message: "Welcome to Mission Control!" });
 
     socket.on('disconnect', () => {
@@ -48,14 +48,29 @@ const handleIncomingTelemetry = (rawData) => {
     }
 }
 
+
+
+const dataStream = new WebSocket('ws://localhost:8000/ws');
+
+dataStream.on('open', () => {
+    console.log("Successfully connected to Data Team's live stream (Port 8000)");
+});
+
+dataStream.on('message', (message) => {
+    try {
+        const freshData = JSON.parse(message);
+
+        handleIncomingTelemetry(freshData);
+    } catch (error) {
+        console.error('Data parsing error:', error.message);
+    }
+});
+
+dataStream.on('error', (err) => {
+    console.error('Data connection error:', err.message);
+});
+
+
 httpServer.listen(port, () => {
     console.log(`Mission control server is live on port: ${port}`);
 });
-
-// סימולציה של נתונים (Mock) - בייצור זה יוחלף בהאזנה ל-Data Team
-import { getMockData } from './mock/initialData.js';
-
-setInterval(() => {
-    const freshData = "http://localhost:8002";
-    handleIncomingTelemetry(freshData);
-}, 500);
