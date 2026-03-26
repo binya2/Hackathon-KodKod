@@ -1,3 +1,7 @@
+const COMMAND_URL = 'http://localhost:8001'; // פקודות (New Target, Engage)
+const STATE_URL = 'http://localhost:8000'; // מצב נוכחי 
+const HISTORY_URL = 'http://localhost:8002'; // היסטוריה
+
 // 1. יצירת מטרה חדשה והזנקה אוטומטית (חדש!)
 export const handleNewTarget = async (req, res) => {
     const { lat, lon } = req.body;
@@ -6,7 +10,7 @@ export const handleNewTarget = async (req, res) => {
     }
 
     try {
-        const response = await fetch('http://localhost:8001/new_target', {
+        const response = await fetch(`${COMMAND_URL}/new_target`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) })
@@ -24,9 +28,8 @@ export const handleNewTarget = async (req, res) => {
 // 2. פקודת אש (מעודכן)
 export const handleEngage = async (req, res) => {
     const { target_id, drone_id } = req.body;
-    // במסמך כתוב שזה חייב להיות "engage"
     try {
-        const response = await fetch('http://localhost:8001/engage', {
+        const response = await fetch(`${COMMAND_URL}/engage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -45,11 +48,11 @@ export const handleEngage = async (req, res) => {
     }
 };
 
-// 3. הזנקה ידנית (מעודכן - חייב target_id)
+// הזנקה ידנית
 export const handleDeployDrone = async (req, res) => {
     const { role, target_id } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/deploy_drone', {
+        const response = await fetch(`${COMMAND_URL}/deploy_drone`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role, target_id })
@@ -64,11 +67,11 @@ export const handleDeployDrone = async (req, res) => {
     }
 };
 
-// 4. החזרה לבסיס (חדש!)
+// 4. החזרה לבסיס
 export const handleRecall = async (req, res) => {
     const { drone_id } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/recall_drone', {
+        const response = await fetch(`${COMMAND_URL}/recall_drone`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ drone_id })
@@ -84,7 +87,7 @@ export const handleRecall = async (req, res) => {
 export const handleManualMove = async (req, res) => {
     const { drone_id, lat, lon, alt = 150.0 } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/manual_move', {
+        const response = await fetch(`${COMMAND_URL}/manual_move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -105,7 +108,7 @@ export const handleManualMove = async (req, res) => {
 export const handleResumeAuto = async (req, res) => {
     const { drone_id } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/resume_auto', {
+        const response = await fetch(`${COMMAND_URL}/resume_auto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ drone_id })
@@ -120,7 +123,7 @@ export const handleResumeAuto = async (req, res) => {
 // GET STATE (Fallback)
 export const getCurrentState = async (req, res) => {
     try {
-        const response = await fetch('http://localhost:8000/api/state');
+        const response = await fetch(`${STATE_URL}/api/state`);
         const data = await response.json();
         res.status(200).json(data);
     } catch (error) {
@@ -137,15 +140,13 @@ export const getDroneHistory = async (req, res) => {
     }
 
     try {
-        // פנייה לדאטא: "תביא לי את הנקודות של רחפן X רק כשהוא היה נעול על מטרה Y"
-        const response = await fetch(`http://localhost:8000/drone_history/${droneId}/${targetId}`);
+        const response = await fetch(`${HISTORY_URL}/drone_history/${droneId}/${targetId}`);
 
         if (!response.ok) {
             return res.status(response.status).json({ message: "No history for this mission yet" });
         }
 
         const path = await response.json();
-        // מחזירים מערך נקי: [ {lat, lon}, {lat, lon} ... ]
         return res.status(200).json(path);
 
     } catch (error) {
