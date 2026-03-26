@@ -19,6 +19,11 @@ def get_target(target_id: str) -> Optional[TargetTelemetry]:
     return _targets_registry.get(target_id)
 
 
+def get_active_targets() -> List[TargetTelemetry]:
+    """Returns all targets with health > 0, excluding TGT-INIT."""
+    return [t for t in _targets_registry.values() if t.health > 0 and t.target_id != "TGT-INIT"]
+
+
 def update_drone_telemetry(telemetry: DroneTelemetry):
     """Adds or updates a drone's telemetry in the registry."""
     _drones_registry[telemetry.drone_id] = telemetry

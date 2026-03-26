@@ -7,6 +7,7 @@ from aiokafka import AIOKafkaProducer
 from data_pipeline.attack_brain.state_manager import (
     get_active_attack_drones,
     get_target,
+    get_active_targets,
     get_drones_on_target,
     update_drone_telemetry,
 )
@@ -26,20 +27,49 @@ async def assignment_loop(producer: AIOKafkaProducer):
     while True:
         # Get all attack drones that are either active or currently being deployed
         all_drones = get_active_attack_drones()
-        active_attack_drones = [d for d in all_drones if d.assigned_target_id and d.flight_status != "RETURNING"]
+        active_targets = get_active_targets()
 
+        # 1. Target-centric check: Ensure each active target has 2 drones
+        for target in active_targets:
+            if target.target_id == "TGT-INIT":
+                continue
+            assigned_count = sum(
+                1 for d in all_drones
+                if d.assigned_target_id == target.target_id and d.flight_status in ["ACTIVE", "ATTACKING"]
+            )
+            if assigned_count < 2:
+                logger.info(f"[ASSIGN] Target {target.target_id} has {assigned_count} drones. Requesting replacement...")
+                await _request_replacement(target.target_id, producer)
+
+        # 2. Drone-centric check: Process assignments
+        active_attack_drones = [d for d in all_drones if d.assigned_target_id and d.flight_status != "RETURNING"]
         for drone in active_attack_drones:
-            await _process_drone_assignment(drone, producer, all_drones)
+            await _process_drone_assignment(drone, producer, all_drones, active_targets)
 
         await asyncio.sleep(2.0)
 
 
-async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drones):
+async def _process_drone_assignment(drone, producer: AIOKafkaProducer, all_drones, active_targets):
     target = get_target(drone.assigned_target_id)
 
+    # If target is missing or dead, try to find a new one
     if not target or target.health <= 0:
-        await _recall_drone(drone.drone_id, producer)
-        return
+        new_target = next(
+            (t for t in active_targets if sum(
+                1 for d in all_drones
+                if d.assigned_target_id == t.target_id and d.flight_status in ["ACTIVE", "ATTACKING"]
+            ) < 2),
+            None
+        )
+
+        if new_target:
+            logger.info(f"[RE-ASSIGN] Drone {drone.drone_id} moved from dead {drone.assigned_target_id} to {new_target.target_id}")
+            drone.assigned_target_id = new_target.target_id
+            update_drone_telemetry(drone)
+            target = new_target # Continue processing with new target
+        else:
+            await _recall_drone(drone.drone_id, producer)
+            return
 
     # Skip updates if drone is attacking
     if drone.flight_status == "ATTACKING":

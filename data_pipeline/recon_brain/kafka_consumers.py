@@ -28,6 +28,25 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
             raw_data = json.loads(msg.value.decode("utf-8"))
             target = TargetTelemetry(**raw_data)
 
+            if target.target_id == "TGT-INIT":
+                continue
+
+            if target.health <= 0:
+                active_recon = get_active_recon_drone_for_target(target.target_id)
+                for drone in active_recon:
+                    logger.info(f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
+                    recall_cmd = {
+                        "drone_id": drone.drone_id,
+                        "action": "RECALL_DRONE"
+                    }
+                    await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
+                    
+                    # Optimistic update
+                    drone.flight_status = "RETURNING"
+                    drone.assigned_target_id = None
+                    update_drone_telemetry(drone)
+                continue
+
             active_recon = get_active_recon_drone_for_target(target.target_id)
 
             for i, drone in enumerate(active_recon):

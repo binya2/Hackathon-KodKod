@@ -44,7 +44,7 @@ def _poll_events(consumer, state, producer):
 
 def _emit_telemetry(state, producer):
     if not state.is_active:
-        if state._death_broadcasted:
+        if state._death_broadcasted or state.target_id == "TGT-INIT":
             return
         state._death_broadcasted = True
 

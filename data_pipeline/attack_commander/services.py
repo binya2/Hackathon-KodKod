@@ -1,4 +1,5 @@
 import uuid
+import math
 
 from fastapi import HTTPException
 
@@ -30,6 +31,24 @@ async def execute_engage(drone_id: str, target_id: str):
 
     if target.get("health", 0) <= 0:
         raise HTTPException(status_code=400, detail=f"Forbidden: Target {target_id} is already destroyed.")
+
+    # 1.5 Recon Validation
+    recons = state.get("recon_data", [])
+    recon_ready = False
+    for d in recons:
+        if d.get("assigned_target_id") == target_id and d.get("flight_status") == "ACTIVE":
+            r_lat = d["position"]["lat"]
+            r_lon = d["position"]["lon"]
+            dist = math.sqrt((r_lat - target["position"]["lat"])**2 + (r_lon - target["position"]["lon"])**2)
+            # 0.002 degrees is roughly 200 meters. The recon must be close!
+            if dist < 0.002:
+                recon_ready = True
+                break
+
+    if not recon_ready:
+        recons_log = [(d.get('drone_id'), d.get('assigned_target_id'), d.get('flight_status')) for d in recons]
+        await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range. Current recons: {recons_log}")
+        raise HTTPException(status_code=400, detail="Forbidden: Cannot engage. Recon drone is deployed but hasn't arrived at the target yet.")
 
     # 2. Drone Validation
     drone = next((d for d in state.get("recon_data", []) + state.get("attack_data", [])
