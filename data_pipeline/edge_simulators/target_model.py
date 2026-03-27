@@ -1,9 +1,9 @@
 from data_pipeline.shared.models import GeoPoint, TargetTelemetry, TargetType
 
-
 class TargetState:
+
     def __init__(self):
-        self.target_id: str = "TGT-INIT"
+        self.target_id: str = 'TGT-INIT'
         self.base_lat: float = 31.705
         self.base_lon: float = 35.205
         self.health: float = 100.0
@@ -25,10 +25,4 @@ class TargetState:
                 self.is_active = False
 
     def create_telemetry(self, current_lat: float, current_lon: float) -> TargetTelemetry:
-        return TargetTelemetry(
-            target_id=self.target_id,
-            target_type=TargetType.VEHICLE.value,
-            position=GeoPoint(lat=current_lat, lon=current_lon),
-            confidence=0.95 if self.health > 0 else 0.0,
-            health=self.health
-        )
+        return TargetTelemetry(target_id=self.target_id, target_type=TargetType.VEHICLE.value, position=GeoPoint(lat=current_lat, lon=current_lon), confidence=0.95 if self.health > 0 else 0.0, health=self.health)
