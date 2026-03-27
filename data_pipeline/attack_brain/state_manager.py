@@ -2,7 +2,9 @@ import logging
 from typing import List, Optional
 from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
 from data_pipeline.shared.redis_utils import redis_client
+
 logger = logging.getLogger(__name__)
+
 
 async def get_target(target_id: str) -> Optional[TargetTelemetry]:
     res = await redis_client.hget('targets', target_id)
@@ -12,6 +14,7 @@ async def get_target(target_id: str) -> Optional[TargetTelemetry]:
         except Exception:
             return None
     return None
+
 
 async def get_active_targets() -> List[TargetTelemetry]:
     targets_raw = await redis_client.hgetall('targets')
@@ -25,8 +28,10 @@ async def get_active_targets() -> List[TargetTelemetry]:
             pass
     return targets
 
+
 async def update_drone_telemetry(telemetry: DroneTelemetry):
     await redis_client.hset('drones', telemetry.drone_id, telemetry.model_dump_json())
+
 
 async def get_active_attack_drones() -> List[DroneTelemetry]:
     drones_raw = await redis_client.hgetall('drones')
@@ -40,6 +45,7 @@ async def get_active_attack_drones() -> List[DroneTelemetry]:
             pass
     return active_attack
 
+
 async def get_sleeping_attack_drones() -> List[DroneTelemetry]:
     drones_raw = await redis_client.hgetall('drones')
     sleeping_attack = []
@@ -51,6 +57,7 @@ async def get_sleeping_attack_drones() -> List[DroneTelemetry]:
         except Exception:
             pass
     return sleeping_attack
+
 
 async def get_drones_on_target(target_id: str) -> List[DroneTelemetry]:
     active_attack = await get_active_attack_drones()

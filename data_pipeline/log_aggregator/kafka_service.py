@@ -1,12 +1,15 @@
 import json
 from confluent_kafka import Consumer, KafkaError
 
+
 def create_consumer(bootstrap_servers: str, group_id: str, topic: str):
-    consumer = Consumer({'bootstrap.servers': bootstrap_servers, 'group.id': group_id, 'auto.offset.reset': 'latest', 'enable.auto.commit': True})
+    consumer = Consumer({'bootstrap.servers': bootstrap_servers, 'group.id': group_id, 'auto.offset.reset': 'latest',
+                         'enable.auto.commit': True})
     consumer.subscribe([topic])
     return consumer
 
-def poll_logs(consumer: Consumer, callback, timeout: float=1.0):
+
+def poll_logs(consumer: Consumer, callback, timeout: float = 1.0):
     try:
         while True:
             msg = consumer.poll(timeout)

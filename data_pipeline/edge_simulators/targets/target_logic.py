@@ -1,14 +1,16 @@
 import math
 from target_model import TargetState
 
-def handle_target_event(event_data: dict, topic: str, state: TargetState, producer):
+
+async def handle_target_event(event_data: dict, topic: str, state: TargetState, producer):
     event_type = event_data.get('action') or event_data.get('event')
     if event_type == 'SPAWN_TARGET':
-        _process_intel(event_data, state, producer)
+        await _process_intel(event_data, state, producer)
     elif event_type == 'PAYLOAD_DROPPED':
-        _process_hit(event_data, state, producer)
+        await _process_hit(event_data, state, producer)
 
-def _process_hit(event_data: dict, state: TargetState, producer):
+
+async def _process_hit(event_data: dict, state: TargetState, producer):
     if not state.is_active:
         return
     event_target_id = event_data.get('target_id')
@@ -20,16 +22,17 @@ def _process_hit(event_data: dict, state: TargetState, producer):
     if distance < 0.00015:
         state.take_damage(25.0)
         print(f'💥 [DIRECT HIT] {state.target_id} hit! Health: {state.health}')
-        _send_immediate_telemetry(state, producer)
+        await _send_immediate_telemetry(state, producer)
     else:
         print(f'☁️ [MISS] {state.target_id} - Accuracy insufficient. Dist: {distance:.6f}')
 
-def _send_immediate_telemetry(state: TargetState, producer):
-    telemetry = state.create_telemetry(state.base_lat, state.base_lon)
-    producer.produce('target.raw', key=state.target_id, value=telemetry.model_dump_json())
-    producer.poll(0)
 
-def _process_intel(event_data: dict, state: TargetState, producer):
+async def _send_immediate_telemetry(state: TargetState, producer):
+    telemetry = state.create_telemetry(state.base_lat, state.base_lon)
+    await producer.send('target.raw', key=state.target_id.encode('utf-8'), value=telemetry.model_dump_json().encode('utf-8'))
+
+
+async def _process_intel(event_data: dict, state: TargetState, producer):
     action = event_data.get('action')
     if action == 'SPAWN_TARGET':
         target_id = event_data.get('target_id')
@@ -37,4 +40,4 @@ def _process_intel(event_data: dict, state: TargetState, producer):
         lon = event_data.get('lon')
         state.spawn(target_id, lat, lon)
         print(f'🎯 [TARGET SIM] Target {target_id} spawned at {lat}, {lon}')
-        _send_immediate_telemetry(state, producer)
+        await _send_immediate_telemetry(state, producer)

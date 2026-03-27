@@ -20,8 +20,8 @@ POST {{commander_url}}/new_target
 Content-Type: application/json
 
 {
-    "lat": 31.750,
-    "lon": 35.250
+  "lat": 31.750,
+  "lon": 35.250
 }
 
 
@@ -34,8 +34,8 @@ POST {{commander_url}}/deploy_drone
 Content-Type: application/json
 
 {
-    "role": "attack",
-    "target_id": "TGT-C9DC"
+  "role": "attack",
+  "target_id": "TGT-C9DC"
 }
 
 ### החזרת רחפן לבסיס (Recall / Return to Base)
@@ -44,7 +44,7 @@ POST {{commander_url}}/recall_drone
 Content-Type: application/json
 
 {
-    "drone_id": "DRN-10"
+  "drone_id": "DRN-10"
 }
 
 
@@ -57,10 +57,10 @@ POST {{commander_url}}/manual_move
 Content-Type: application/json
 
 {
-    "drone_id": "DRN-1",
-    "lat": 31.755,
-    "lon": 35.255,
-    "alt": 150.0
+  "drone_id": "DRN-1",
+  "lat": 31.755,
+  "lon": 35.255,
+  "alt": 150.0
 }
 
 ### החזרת רחפן למצב אוטונומי (Resume Auto)
@@ -69,7 +69,7 @@ POST {{commander_url}}/resume_auto
 Content-Type: application/json
 
 {
-    "drone_id": "DRN-1"
+  "drone_id": "DRN-1"
 }
 
 
@@ -81,9 +81,9 @@ POST {{commander_url}}/engage
 Content-Type: application/json
 
 {
-    "action": "engage",
-    "target_id": "TGT-1",
-    "drone_id": "DRN-6"
+  "action": "engage",
+  "target_id": "TGT-1",
+  "drone_id": "DRN-6"
 }
 
 

@@ -1,12 +1,14 @@
 import asyncio
 import logging
+
 from aiokafka import AIOKafkaProducer
-from data_pipeline.shared.models import DroneCommand
+
+from data_pipeline.attack_brain.navigation_calculator import calculate_waypoint, calculate_distance_m
 from data_pipeline.attack_brain.state_manager import get_active_attack_drones, get_target, get_active_targets, \
     get_drones_on_target
-from data_pipeline.attack_brain.navigation_calculator import calculate_waypoint, calculate_distance_m
 from data_pipeline.attack_brain.target_evaluator import evaluate_target_needs, find_new_target, recall_drone, \
     request_replacement
+from data_pipeline.shared.models import DroneCommand
 
 logger = logging.getLogger(__name__)
 

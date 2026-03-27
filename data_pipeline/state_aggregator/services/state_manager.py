@@ -3,14 +3,17 @@ import logging
 from datetime import datetime, timezone
 from data_pipeline.shared.models import WorldState, DroneTelemetry, TargetTelemetry
 from data_pipeline.shared.redis_utils import redis_client
+
 logger = logging.getLogger(__name__)
+
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
     current_raw = await redis_client.hget('drones', telemetry.drone_id)
     if current_raw:
         current_data = json.loads(current_raw)
         new_data = telemetry.model_dump(mode='json')
-        is_ghost_sleep = current_data.get('flight_status') in ['EN_ROUTE', 'ACTIVE', 'ATTACKING'] and new_data.get('flight_status') == 'SLEEP'
+        is_ghost_sleep = current_data.get('flight_status') in ['EN_ROUTE', 'ACTIVE', 'ATTACKING'] and new_data.get(
+            'flight_status') == 'SLEEP'
         if is_ghost_sleep:
             current_data['position'] = new_data['position']
             current_data['velocity'] = new_data['velocity']
@@ -23,8 +26,10 @@ async def update_drone_telemetry(telemetry: DroneTelemetry):
     else:
         await redis_client.hset('drones', telemetry.drone_id, telemetry.model_dump_json())
 
+
 async def update_target_telemetry(telemetry: TargetTelemetry):
     await redis_client.hset('targets', telemetry.target_id, telemetry.model_dump_json())
+
 
 async def garbage_collect_stale_drones():
     now = datetime.now(timezone.utc)
@@ -39,6 +44,7 @@ async def garbage_collect_stale_drones():
             logger.error(f'Error parsing drone {drone_id}: {e}')
             await redis_client.hdel('drones', drone_id)
 
+
 async def garbage_collect_dead_targets():
     now = datetime.now(timezone.utc)
     targets_raw = await redis_client.hgetall('targets')
@@ -51,6 +57,7 @@ async def garbage_collect_dead_targets():
         except Exception as e:
             logger.error(f'Error parsing target {target_id}: {e}')
 
+
 def _parse_drones_from_redis(drones_raw: dict) -> list:
     drones = []
     for v in drones_raw.values():
@@ -59,6 +66,7 @@ def _parse_drones_from_redis(drones_raw: dict) -> list:
         except Exception as e:
             logger.error(f'Error parsing drone telemetry: {e}')
     return drones
+
 
 def _parse_targets_from_redis(targets_raw: dict) -> list:
     targets = []
@@ -69,6 +77,7 @@ def _parse_targets_from_redis(targets_raw: dict) -> list:
             logger.error(f'Error parsing target telemetry: {e}')
     return targets
 
+
 async def get_world_state() -> WorldState:
     await garbage_collect_stale_drones()
     await garbage_collect_dead_targets()
@@ -78,7 +87,9 @@ async def get_world_state() -> WorldState:
     targets = _parse_targets_from_redis(targets_raw)
     world_state = WorldState()
     world_state.timestamp = datetime.now(timezone.utc)
-    world_state.recon_data = sorted([d for d in drones if d.role.lower() == 'recon'], key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
-    world_state.attack_data = sorted([d for d in drones if d.role.lower() == 'attack'], key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
+    world_state.recon_data = sorted([d for d in drones if d.role.lower() == 'recon'],
+                                    key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
+    world_state.attack_data = sorted([d for d in drones if d.role.lower() == 'attack'],
+                                     key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
     world_state.target_data = [t for t in targets if t.health > 0]
     return world_state

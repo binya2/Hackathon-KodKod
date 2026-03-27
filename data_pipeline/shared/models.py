@@ -4,20 +4,24 @@ from enum import Enum
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
+
 class DroneRole(str, Enum):
     RECON = 'recon'
     ATTACK = 'attack'
     RELAY = 'relay'
+
 
 class TargetType(str, Enum):
     VEHICLE = 'vehicle'
     INFANTRY = 'infantry'
     STRUCTURE = 'structure'
 
+
 class GeoPoint(BaseModel):
     lat: float
     lon: float
     alt: Optional[float] = None
+
 
 class DroneTelemetry(BaseModel):
     drone_id: str
@@ -31,6 +35,7 @@ class DroneTelemetry(BaseModel):
     flight_status: str = 'SLEEP'
     assigned_target_id: Optional[str] = None
 
+
 class TargetTelemetry(BaseModel):
     target_id: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -39,16 +44,19 @@ class TargetTelemetry(BaseModel):
     confidence: float
     health: float = 100.0
 
+
 class NavigationCommand(BaseModel):
     drone_id: str
     position: GeoPoint
     priority: int = 1
     flight_status: Optional[str] = None
 
+
 class DroneCommand(BaseModel):
     drone_id: str
     position: GeoPoint
     flight_status: Optional[str] = None
+
 
 class WorldState(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

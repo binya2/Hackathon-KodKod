@@ -3,12 +3,17 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import AsyncIterable, Dict
+
 from aiokafka import AIOKafkaProducer
-from data_pipeline.shared.models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
-from data_pipeline.recon_brain.state_manager import update_drone_telemetry, get_active_recon_drone_for_target, get_active_recon_drones, get_sleeping_recon_drones
+
 from data_pipeline.recon_brain.recon_navigation import calculate_recon_waypoint, calculate_distance_m
+from data_pipeline.recon_brain.state_manager import update_drone_telemetry, get_active_recon_drone_for_target, \
+    get_sleeping_recon_drones
+from data_pipeline.shared.models import TargetTelemetry, NavigationCommand, DroneTelemetry
+
 logger = logging.getLogger(__name__)
 _last_recon_nav_command_time: Dict[str, float] = {}
+
 
 async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProducer):
     async for msg in consumer:
@@ -28,6 +33,7 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
         except Exception as e:
             logger.error('Error processing target in Recon Brain: %s', e)
 
+
 async def _recall_all_for_target(target_id: str, producer: AIOKafkaProducer):
     active_recon = await get_active_recon_drone_for_target(target_id)
     for drone in active_recon:
@@ -35,14 +41,18 @@ async def _recall_all_for_target(target_id: str, producer: AIOKafkaProducer):
         recall_cmd = {'drone_id': drone.drone_id, 'action': 'RECALL_DRONE'}
         await producer.send_and_wait('commands.drones', json.dumps(recall_cmd).encode('utf-8'))
 
-async def _issue_recon_nav_command(drone: DroneTelemetry, target: TargetTelemetry, index: int, producer: AIOKafkaProducer):
+
+async def _issue_recon_nav_command(drone: DroneTelemetry, target: TargetTelemetry, index: int,
+                                   producer: AIOKafkaProducer):
     now = time.time()
     if now - _last_recon_nav_command_time.get(drone.drone_id, 0) < 1.0:
         return
     dist_m = calculate_distance_m(drone.position, target.position)
-    nav_cmd = NavigationCommand(drone_id=drone.drone_id, position=calculate_recon_waypoint(target.position, index), priority=2, flight_status='EN_ROUTE' if dist_m > 50.0 else 'ACTIVE')
+    nav_cmd = NavigationCommand(drone_id=drone.drone_id, position=calculate_recon_waypoint(target.position, index),
+                                priority=2, flight_status='EN_ROUTE' if dist_m > 50.0 else 'ACTIVE')
     await producer.send_and_wait('commands.drones', nav_cmd.model_dump_json().encode('utf-8'))
     _last_recon_nav_command_time[drone.drone_id] = now
+
 
 async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaProducer, running_in_k8s: bool):
     async for msg in consumer:
@@ -56,6 +66,7 @@ async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaP
         except Exception as e:
             logger.error('Error processing deployment in Recon Brain: %s', e)
 
+
 async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     target_id = data.get('target_id')
     position = data.get('position')
@@ -64,6 +75,7 @@ async def _handle_recon_deployment(data: dict, producer: AIOKafkaProducer, runni
         await _wake_up_recon_drone(target_id, position, producer)
     else:
         await _handle_capacity_limit(data, producer, running_in_k8s)
+
 
 async def _wake_up_recon_drone(target_id: str, position: dict, producer: AIOKafkaProducer):
     sleeping_recon = await get_sleeping_recon_drones()
@@ -77,9 +89,11 @@ async def _wake_up_recon_drone(target_id: str, position: dict, producer: AIOKafk
     await _send_wake_up_commands(target_drone, target_id, position, producer)
     logger.info('[DEPLOY] Waking up %s for target %s', target_drone.drone_id, target_id)
 
+
 async def _send_wake_up_commands(drone: DroneTelemetry, target_id: str, position: dict, producer: AIOKafkaProducer):
     wake_cmd = {'drone_id': drone.drone_id, 'action': 'WAKE_UP', 'target_id': target_id, 'position': position}
     await producer.send_and_wait('commands.drones', json.dumps(wake_cmd).encode('utf-8'))
+
 
 async def _handle_capacity_limit(data: dict, producer: AIOKafkaProducer, running_in_k8s: bool):
     if not running_in_k8s:

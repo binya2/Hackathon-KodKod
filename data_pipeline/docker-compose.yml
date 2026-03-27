@@ -86,7 +86,7 @@ services:
     build: 
       context: .
       dockerfile: ./edge_simulators/Dockerfile
-    command: python drones_sim.py --kafka-bootstrap kafka:29092 --num-drones 20
+    command: python drones/drones_sim.py --kafka-bootstrap kafka:29092 --num-drones 20
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:
@@ -97,7 +97,7 @@ services:
     build: 
       context: .
       dockerfile: ./edge_simulators/Dockerfile
-    command: python target_sim.py --kafka-bootstrap kafka:29092
+    command: python targets/target_sim.py --kafka-bootstrap kafka:29092
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
     depends_on:

@@ -1,11 +1,14 @@
 import asyncio
 import httpx
+
 COMMANDER_URL = 'http://localhost:8001'
 AGGREGATOR_URL = 'http://localhost:8000'
+
 
 async def get_state(client: httpx.AsyncClient):
     resp = await client.get(f'{AGGREGATOR_URL}/api/state')
     return resp.json()
+
 
 async def wait_for_system_sync(client: httpx.AsyncClient) -> bool:
     print('\n[⏳] ממתין לסנכרון ראשוני של הרחפנים מול ה-Redis...')
@@ -22,7 +25,8 @@ async def wait_for_system_sync(client: httpx.AsyncClient) -> bool:
         await asyncio.sleep(1)
     return False
 
-def print_result(test_name: str, success: bool, reason: str=''):
+
+def print_result(test_name: str, success: bool, reason: str = ''):
     if success:
         print(f'  ✅ עבר: {test_name}')
     else:

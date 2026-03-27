@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 from drone_model import Drone
 
-class DroneManager:
 
+class DroneManager:
     def __init__(self, num_drones: int, base_lat: float, base_lon: float):
         self.drones = self._initialize_drones(num_drones, base_lat, base_lon)
 
@@ -15,14 +15,14 @@ class DroneManager:
             drones.append(Drone(f'DRN-{i + 1}', role, lat, lon, 0.0))
         return drones
 
-    def handle_command(self, cmd_data: Dict[str, Any], topic: str, producer):
+    async def handle_command(self, cmd_data: Dict[str, Any], topic: str, producer):
         drone_id = cmd_data.get('drone_id')
         drone = next((d for d in self.drones if d.drone_id == drone_id), None)
         if not drone:
             return
         action = cmd_data.get('action')
         if action == 'EXECUTE_STRIKE':
-            self._process_attack_command(drone, cmd_data, producer)
+            await self._process_attack_command(drone, cmd_data, producer)
         else:
             self._process_system_command(drone, cmd_data)
 
@@ -45,7 +45,7 @@ class DroneManager:
                 if 'flight_status' in cmd:
                     drone.flight_status = cmd['flight_status']
 
-    def _process_attack_command(self, drone: Drone, cmd: Dict[str, Any], producer):
+    async def _process_attack_command(self, drone: Drone, cmd: Dict[str, Any], producer):
         if drone.role.lower() != 'attack':
             print(f'⚠️ [SIM] Drone {drone.drone_id} is a {drone.role} drone and cannot perform strikes.')
             return
@@ -58,12 +58,13 @@ class DroneManager:
             if pos:
                 drone.update_waypoint(pos.get('lat'), pos.get('lon'), drone.alt)
 
-    def _emit_strike_event(self, strike_data: dict, producer):
+    async def _emit_strike_event(self, strike_data: dict, producer):
         event = {**strike_data, 'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}
-        producer.produce('events.mission', key=strike_data['drone_id'], value=json.dumps(event))
+        await producer.send('events.mission', key=strike_data['drone_id'].encode('utf-8'),
+                            value=json.dumps(event).encode('utf-8'))
 
-    def update_all(self, dt: float, producer):
+    async def update_all(self, dt: float, producer):
         for drone in self.drones:
             strike_event = drone.tick(dt)
             if strike_event:
-                self._emit_strike_event(strike_event, producer)
+                await self._emit_strike_event(strike_event, producer)

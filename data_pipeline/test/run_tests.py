@@ -1,8 +1,10 @@
 import asyncio
 import sys
 import httpx
-from test_cases import run_security_tests, run_mission_flow_tests, run_manual_override_tests, run_edge_cases_tests
+from test_cases import run_security_tests, run_mission_flow_tests, run_manual_override_tests, run_edge_cases_tests, \
+    run_recon_first_test, run_multi_target_stress_test
 from utils import wait_for_system_sync
+
 
 async def main():
     print('🚀 מתחיל הרצת חבילת בדיקות מקיפה...')
@@ -16,7 +18,11 @@ async def main():
         await run_mission_flow_tests(client)
         await run_manual_override_tests(client)
         await run_edge_cases_tests(client)
-    print('\n🏁 הבדיקות הסתיימו. אם הכל ירוק, אפשר להמשיך לניקוי קוד הסרוויסים!')
+        await run_recon_first_test(client)
+        await run_multi_target_stress_test(client)
+    print('\n🏁 הבדיקות הסתיימו. אם הכל ירוק, אפשר להמשיך!')
+
+
 if __name__ == '__main__':
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
