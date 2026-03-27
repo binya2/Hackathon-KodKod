@@ -1,11 +1,8 @@
 import logging
 from typing import List
 
-from data_pipeline.shared.models import DroneTelemetry
+from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
 from data_pipeline.shared.redis_utils import redis_client
-
-# from shared.models import DroneTelemetry, TargetTelemetry
-# from shared.redis_utils import redis_client
 
 logger = logging.getLogger(__name__)
 
