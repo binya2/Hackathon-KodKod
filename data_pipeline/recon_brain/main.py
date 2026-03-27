@@ -2,8 +2,7 @@ import asyncio
 import logging
 import os
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-
+from data_pipeline.shared.kafka_utils import get_kafka_producer, get_kafka_consumer
 from data_pipeline.recon_brain.kafka_consumers import (
     process_target_stream,
     process_deployment_stream
@@ -18,20 +17,20 @@ RUNNING_IN_K8S = os.environ.get("K8S_DEPLOYMENT", "false").lower() == "true"
 async def run_recon_brain():
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
-    producer = AIOKafkaProducer(bootstrap_servers=bootstrap_servers)
+    producer = await get_kafka_producer(bootstrap_servers)
 
-    target_consumer = AIOKafkaConsumer(
-        "target.raw",
+    target_consumer = await get_kafka_consumer(
+        ["target.raw"],
         bootstrap_servers=bootstrap_servers,
         group_id="recon_brain_group",
-        auto_offset_reset="earliest"
+        offset_reset="earliest"
     )
 
-    deploy_consumer = AIOKafkaConsumer(
-        "commands.deployment",
+    deploy_consumer = await get_kafka_consumer(
+        ["commands.deployment"],
         bootstrap_servers=bootstrap_servers,
         group_id="recon_deploy",
-        auto_offset_reset="earliest"
+        offset_reset="earliest"
     )
 
     await producer.start()

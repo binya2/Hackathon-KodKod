@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from aiokafka import AIOKafkaProducer
+from data_pipeline.shared.kafka_utils import get_kafka_producer, AIOKafkaProducer
 
 producer: AIOKafkaProducer = None
 
@@ -15,7 +15,7 @@ async def init_kafka_producer():
     global producer
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     print(f"[SYSTEM] Attack Commander connecting to Kafka Producer: {bootstrap_servers}")
-    producer = AIOKafkaProducer(bootstrap_servers=bootstrap_servers)
+    producer = await get_kafka_producer(bootstrap_servers)
     await producer.start()
 
 

@@ -5,6 +5,7 @@ import os
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
+from data_pipeline.shared.kafka_utils import get_kafka_producer, get_kafka_consumer
 from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
 from data_pipeline.state_aggregator.state_manager import update_drone_telemetry, update_target_telemetry, \
     get_world_state
@@ -15,18 +16,18 @@ logger = logging.getLogger(__name__)
 async def get_kafka_consumer() -> AIOKafkaConsumer:
     """Configures and returns a Kafka consumer."""
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-    return AIOKafkaConsumer(
-        "telemetry.raw", "target.raw",
+    return await get_kafka_consumer(
+        ["telemetry.raw", "target.raw"],
         bootstrap_servers=bootstrap_servers,
         group_id="state_aggregator_group",
-        auto_offset_reset="earliest"
+        offset_reset="earliest"
     )
 
 
 async def get_kafka_producer() -> AIOKafkaProducer:
     """Configures and returns a Kafka producer."""
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
-    return AIOKafkaProducer(bootstrap_servers=bootstrap_servers)
+    return await get_kafka_producer(bootstrap_servers)
 
 
 async def process_telemetry_message(raw_data: dict):

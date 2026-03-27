@@ -2,8 +2,7 @@ import asyncio
 import logging
 import os
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-
+from data_pipeline.shared.kafka_utils import get_kafka_producer, get_kafka_consumer
 from data_pipeline.attack_brain.assignment_logic import assignment_loop
 from data_pipeline.attack_brain.kafka_service import (
     process_deployment_stream,
@@ -19,9 +18,13 @@ async def main():
     bootstrap = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     logger.info("[SYSTEM] Connecting to Kafka at %s", bootstrap)
 
-    deploy_consumer = AIOKafkaConsumer("commands.deployment", bootstrap_servers=bootstrap, group_id="attack_deploy",
-                                       auto_offset_reset="earliest")
-    producer = AIOKafkaProducer(bootstrap_servers=bootstrap)
+    deploy_consumer = await get_kafka_consumer(
+        ["commands.deployment"],
+        bootstrap_servers=bootstrap,
+        group_id="attack_deploy",
+        offset_reset="earliest"
+    )
+    producer = await get_kafka_producer(bootstrap)
 
     await deploy_consumer.start()
     await producer.start()

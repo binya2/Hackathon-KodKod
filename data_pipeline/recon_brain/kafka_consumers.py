@@ -1,9 +1,7 @@
 import json
 import logging
-import math
-import uuid
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import AsyncIterable, Dict
 from aiokafka import AIOKafkaProducer
 
@@ -14,10 +12,10 @@ from data_pipeline.recon_brain.state_manager import (
     get_active_recon_drones,
     get_sleeping_recon_drones
 )
+from data_pipeline.recon_brain.recon_navigation import calculate_recon_waypoint, calculate_distance_m
 
 logger = logging.getLogger(__name__)
 
-RECON_ALTITUDE_OFFSET = 200.0
 _last_recon_nav_command_time: Dict[str, float] = {}
 
 
@@ -34,50 +32,41 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 continue
 
             if target.health <= 0:
-                # Identify all relevant drones for the destroyed target
-                active_recon = await get_active_recon_drone_for_target(target.target_id)
-                for drone in active_recon:
-                    logger.info(
-                        f"[AUTO-RECALL] Target {target.target_id} destroyed. Recalling recon drone {drone.drone_id}")
-
-                    # 1. Send Recall Command
-                    recall_cmd = {
-                        "drone_id": drone.drone_id,
-                        "action": "RECALL_DRONE"
-                    }
-                    await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
+                await _recall_all_for_target(target.target_id, producer)
                 continue
 
             active_recon = await get_active_recon_drone_for_target(target.target_id)
-
             for i, drone in enumerate(active_recon):
-                now = time.time()
-                last_time = _last_recon_nav_command_time.get(drone.drone_id, 0)
-                if now - last_time < 1.0:
-                    continue
-
-                # Calculate distance for dynamic status
-                dist_m = math.sqrt((drone.position.lat - target.position.lat) ** 2 +
-                                   (drone.position.lon - target.position.lon) ** 2) * 111139
-                command_status = "EN_ROUTE" if dist_m > 50.0 else "ACTIVE"
-
-                # Standoff offset for recon: approx 15m East and 15m North
-                # This ensures they aren't directly overhead
-                nav_cmd = NavigationCommand(
-                    drone_id=drone.drone_id,
-                    position=GeoPoint(
-                        lat=target.position.lat + 0.00005,
-                        lon=target.position.lon + 0.00005,
-                        alt=RECON_ALTITUDE_OFFSET + (i * 10.0)
-                    ),
-                    priority=2,
-                    flight_status=command_status
-                )
-                await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
-                _last_recon_nav_command_time[drone.drone_id] = now
+                await _issue_recon_nav_command(drone, target, i, producer)
 
         except Exception as e:
             logger.error("Error processing target in Recon Brain: %s", e)
+
+
+async def _recall_all_for_target(target_id: str, producer: AIOKafkaProducer):
+    """Identifies and recalls all drones assigned to a destroyed target."""
+    active_recon = await get_active_recon_drone_for_target(target_id)
+    for drone in active_recon:
+        logger.info(f"[AUTO-RECALL] Target {target_id} destroyed. Recalling recon drone {drone.drone_id}")
+        recall_cmd = {"drone_id": drone.drone_id, "action": "RECALL_DRONE"}
+        await producer.send_and_wait("commands.drones", json.dumps(recall_cmd).encode("utf-8"))
+
+
+async def _issue_recon_nav_command(drone: DroneTelemetry, target: TargetTelemetry, index: int, producer: AIOKafkaProducer):
+    """Sends navigation commands with throttle protection."""
+    now = time.time()
+    if now - _last_recon_nav_command_time.get(drone.drone_id, 0) < 1.0:
+        return
+
+    dist_m = calculate_distance_m(drone.position, target.position)
+    nav_cmd = NavigationCommand(
+        drone_id=drone.drone_id,
+        position=calculate_recon_waypoint(target.position, index),
+        priority=2,
+        flight_status="EN_ROUTE" if dist_m > 50.0 else "ACTIVE"
+    )
+    await producer.send_and_wait("commands.drones", nav_cmd.model_dump_json().encode("utf-8"))
+    _last_recon_nav_command_time[drone.drone_id] = now
 
 
 async def process_deployment_stream(consumer: AsyncIterable, producer: AIOKafkaProducer, running_in_k8s: bool):
