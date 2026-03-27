@@ -101,5 +101,5 @@ POST {{commander_url}}/cancel_target
 Content-Type: application/json
 
 {
-  "target_id": "TGT-4083"
+  "target_id": "TGT-1695"
 }

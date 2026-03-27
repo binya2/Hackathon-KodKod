@@ -225,3 +225,42 @@ async def run_multi_target_stress_test(client):
     for d in all_active:
         if d.get('flight_status') != 'SLEEP':
             await client.post(f'{COMMANDER_URL}/recall_drone', json={'drone_id': d['drone_id']})
+
+
+async def run_abort_mission_test(client):
+    print('\n=== שלב 7: ביטול משימה (Abort Mission) ===')
+    target_id = await _create_mission_target(client, 31.82, 35.12)
+    if not target_id:
+        return
+    
+    print('  ⏳ ממתין להקצאת כוחות והזנקת רחפנים...')
+    await asyncio.sleep(5)
+    
+    state = await get_state(client)
+    assigned_attackers = [d for d in state.get('attack_data', []) if d.get('assigned_target_id') == target_id]
+    if not assigned_attackers:
+        print('❌ שגיאה: לא הוקצו רחפני תקיפה למטרה.')
+        return
+    
+    print('  🛑 שולח פקודת ביטול משימה (CANCEL_TARGET)...')
+    resp = await client.post(f'{COMMANDER_URL}/cancel_target', json={'target_id': target_id})
+    print(f'  📡 תגובת השרת: {resp.status_code} - {resp.json().get("status")}')
+    
+    print('  ⏳ ממתין לתגובת הנחיל (U-Turn)...')
+    await asyncio.sleep(4)
+    
+    state_after = await get_state(client)
+    target_after = next((t for t in state_after.get('target_data', []) if t['target_id'] == target_id), None)
+    target_dead = not target_after or target_after.get('health', 0) <= 0
+    print_result('מחיקת המטרה מהמערכת', target_dead)
+    
+    assigned_ids = [d['drone_id'] for d in assigned_attackers]
+    all_drones_after = state_after.get('attack_data', []) + state_after.get('recon_data', [])
+    returning_count = 0
+    for d_id in assigned_ids:
+        drone_now = next((d for d in all_drones_after if d['drone_id'] == d_id), None)
+        if drone_now and drone_now.get('flight_status') in ['RETURNING', 'SLEEP']:
+            returning_count += 1
+            
+    is_returning = returning_count == len(assigned_ids)
+    print_result('חזרת הנחיל לבסיס (Auto-Recall)', is_returning, f'{returning_count}/{len(assigned_ids)} רחפנים בדרך חזרה')
