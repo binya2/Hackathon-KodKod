@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from data_pipeline.shared_models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole, GeoPoint, TargetType
+from data_pipeline.shared.models import WorldState, DroneTelemetry, TargetTelemetry, DroneRole, GeoPoint, TargetType
 from data_pipeline.state_aggregator.kafka_service import kafka_consumer_task, state_publisher_task
 from data_pipeline.state_aggregator.state_manager import get_world_state
 

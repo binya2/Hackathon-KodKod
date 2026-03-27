@@ -5,7 +5,7 @@ import os
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from data_pipeline.shared_models import DroneTelemetry, TargetTelemetry
+from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
 from data_pipeline.state_aggregator.state_manager import update_drone_telemetry, update_target_telemetry, \
     get_world_state
 
