@@ -2,7 +2,7 @@ import asyncio
 import sys
 import httpx
 from test_cases import run_security_tests, run_mission_flow_tests, run_manual_override_tests, run_edge_cases_tests, \
-    run_recon_first_test, run_multi_target_stress_test
+    run_recon_first_test, run_multi_target_stress_test, cleanup_all_drones
 from utils import wait_for_system_sync
 
 
@@ -15,10 +15,19 @@ async def main():
             print('❌ המערכת לא מסונכרנת. הבדיקה מבוטלת.')
             return
         await run_security_tests(client)
+        
         await run_mission_flow_tests(client)
+        await cleanup_all_drones(client)
+        
         await run_manual_override_tests(client)
+        await cleanup_all_drones(client)
+        
         await run_edge_cases_tests(client)
+        await cleanup_all_drones(client)
+        
         await run_recon_first_test(client)
+        await cleanup_all_drones(client)
+        
         await run_multi_target_stress_test(client)
     print('\n🏁 הבדיקות הסתיימו. אם הכל ירוק, אפשר להמשיך!')
 

@@ -7,7 +7,7 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from data_pipeline.state_aggregator.services.state_manager import update_drone_telemetry, update_target_telemetry, \
     get_world_state
 
-from data_pipeline.shared.kafka_utils import get_kafka_producer, get_kafka_consumer
+from data_pipeline.shared.kafka_utils import get_kafka_producer as shared_get_producer, get_kafka_consumer as shared_get_consumer
 from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
 
 logger = logging.getLogger(__name__)
@@ -15,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 async def get_kafka_consumer() -> AIOKafkaConsumer:
     bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    return await get_kafka_consumer(['telemetry.raw', 'target.raw'], bootstrap_servers=bootstrap_servers,
+    return await shared_get_consumer(['telemetry.raw', 'target.raw'], bootstrap_servers=bootstrap_servers,
                                     group_id='state_aggregator_group', offset_reset='earliest')
 
 
 async def get_kafka_producer() -> AIOKafkaProducer:
     bootstrap_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    return await get_kafka_producer(bootstrap_servers)
+    return await shared_get_producer(bootstrap_servers)
 
 
 async def process_telemetry_message(raw_data: dict):

@@ -157,14 +157,39 @@ async def run_edge_cases_tests(client):
         print_result('חסימת ירי לרחפן ישן', resp.status_code == 400, f'קוד שגיאה: {resp.status_code}')
 
 
+async def cleanup_all_drones(client):
+    print('\n  🧹 מחזיר רחפנים לבסיס וממתין לנחיתה (SLEEP)...')
+    state = await get_state(client)
+    all_drones = state.get('attack_data', []) + state.get('recon_data', [])
+    for d in all_drones:
+        if d.get('flight_status') != 'SLEEP':
+            await client.post(f'{COMMANDER_URL}/recall_drone', json={'drone_id': d['drone_id']})
+    
+    for _ in range(25):
+        state = await get_state(client)
+        recon_data = state.get('recon_data', [])
+        attack_data = state.get('attack_data', [])
+        sleeping_recon = sum(1 for d in recon_data if d.get('flight_status') == 'SLEEP')
+        sleeping_attack = sum(1 for d in attack_data if d.get('flight_status') == 'SLEEP')
+        if sleeping_recon >= 4 and sleeping_attack >= 12:
+            break
+        await asyncio.sleep(1)
+
+
 async def run_recon_first_test(client):
     print('\n=== שלב 5: חוק תצפית תחילה (Recon First) ===')
     target_id = await _create_mission_target(client, 31.805, 35.105)
     if not target_id:
         return
-    await asyncio.sleep(2)
-    state = await get_state(client)
-    attacker = next((d for d in state.get('attack_data', []) if d.get('assigned_target_id') == target_id), None)
+    
+    attacker = None
+    for _ in range(8):
+        await asyncio.sleep(1)
+        state = await get_state(client)
+        attacker = next((d for d in state.get('attack_data', []) if d.get('assigned_target_id') == target_id), None)
+        if attacker:
+            break
+
     if not attacker:
         print_result('חסימת תקיפה ללא תצפית', False, 'לא נמצא רחפן תקיפה משויך בזמן')
         return
