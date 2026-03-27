@@ -17,14 +17,14 @@ async def main():
     consumer = await get_kafka_consumer(['events.mission'], 
                                         f"target-sim-group-{os.environ.get('HOSTNAME', 'default')}",
                                         args.kafka_bootstrap)
-    state = TargetState()
+    targets_dict = {}
     await producer.start()
     await consumer.start()
     print(f'[TARGET] Simulator running. Connecting to {args.kafka_bootstrap}')
     try:
         while True:
-            await _poll_events(consumer, state, producer)
-            await _emit_telemetry(state, producer)
+            await _poll_events(consumer, targets_dict, producer)
+            await _emit_telemetry(targets_dict, producer)
             await asyncio.sleep(0.1)
     except asyncio.CancelledError:
         print('[SYSTEM] Stopped manually.')
@@ -33,26 +33,27 @@ async def main():
         await consumer.stop()
 
 
-async def _poll_events(consumer, state, producer):
+async def _poll_events(consumer, targets_dict, producer):
     msgs = await consumer.getmany(timeout_ms=10)
     for topic, tp_msgs in msgs.items():
         for msg in tp_msgs:
             try:
                 event_data = json.loads(msg.value.decode('utf-8'))
-                await handle_target_event(event_data, topic.topic, state, producer)
+                await handle_target_event(event_data, topic.topic, targets_dict, producer)
             except Exception as e:
                 print(f'[Error] Failed to process event: {e}')
 
 
-async def _emit_telemetry(state, producer):
-    if not state.is_active:
-        if state._death_broadcasted or state.target_id == 'TGT-INIT':
-            return
-        state._death_broadcasted = True
-    jitter_lat = state.base_lat + random.uniform(-2e-05, 2e-05)
-    jitter_lon = state.base_lon + random.uniform(-2e-05, 2e-05)
-    telemetry = state.create_telemetry(jitter_lat, jitter_lon)
-    await producer.send('target.raw', key=state.target_id.encode('utf-8'), value=telemetry.model_dump_json().encode('utf-8'))
+async def _emit_telemetry(targets_dict, producer):
+    for state in targets_dict.values():
+        if not state.is_active:
+            if state._death_broadcasted:
+                continue
+            state._death_broadcasted = True
+        jitter_lat = state.base_lat + random.uniform(-2e-05, 2e-05)
+        jitter_lon = state.base_lon + random.uniform(-2e-05, 2e-05)
+        telemetry = state.create_telemetry(jitter_lat, jitter_lon)
+        await producer.send('target.raw', key=state.target_id.encode('utf-8'), value=telemetry.model_dump_json().encode('utf-8'))
 
 
 if __name__ == '__main__':

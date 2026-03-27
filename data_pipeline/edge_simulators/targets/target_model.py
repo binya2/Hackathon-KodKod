@@ -2,21 +2,13 @@ from data_pipeline.shared.models import GeoPoint, TargetTelemetry, TargetType
 
 
 class TargetState:
-    def __init__(self):
-        self.target_id: str = 'TGT-INIT'
-        self.base_lat: float = 31.705
-        self.base_lon: float = 35.205
+    def __init__(self, target_id: str, lat: float, lon: float):
+        self.target_id: str = target_id
+        self.base_lat: float = lat
+        self.base_lon: float = lon
         self.health: float = 100.0
-        self.is_active: bool = False
+        self.is_active: bool = True
         self._death_broadcasted: bool = False
-
-    def spawn(self, target_id: str, lat: float, lon: float):
-        self.target_id = target_id
-        self.base_lat = lat
-        self.base_lon = lon
-        self.health = 100.0
-        self.is_active = True
-        self._death_broadcasted = False
 
     def take_damage(self, amount: float):
         if self.is_active:

@@ -31,3 +31,7 @@ class DeployRequest(BaseModel):
 class NewTargetRequest(BaseModel):
     lat: float = Field(..., ge=-90.0, le=90.0)
     lon: float = Field(..., ge=-180.0, le=180.0)
+
+
+class CancelTargetRequest(BaseModel):
+    target_id: str

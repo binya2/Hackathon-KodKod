@@ -128,6 +128,16 @@ async def execute_resume_auto(drone_id: str):
     return payload
 
 
+async def execute_cancel_target(target_id: str):
+    state = await _fetch_current_state()
+    target = next((t for t in state.get('target_data', []) if t['target_id'] == target_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail=f'Target {target_id} not found.')
+    payload = {'action': 'CANCEL_TARGET', 'target_id': target_id, 'timestamp': iso8601_utc_now()}
+    await produce_message('events.mission', '', payload)
+    return payload
+
+
 async def _validate_available_resources(state: dict):
     sleeping_recon = sum((1 for d in state.get('recon_data', []) if d.get('flight_status') == 'SLEEP'))
     sleeping_attack = sum((1 for d in state.get('attack_data', []) if d.get('flight_status') == 'SLEEP'))

@@ -91,3 +91,15 @@ Content-Type: application/json
 # 6. בדיקות תקינות (Health Check)
 # ==========================================
 GET {{commander_url}}/health
+
+
+### ==========================================
+# 7. ביטול משימה (Abort Mission)
+# ==========================================
+### ביטול מטרה אקטיבית והחזרת הנחיל לבסיס (U-Turn)
+POST {{commander_url}}/cancel_target
+Content-Type: application/json
+
+{
+  "target_id": "TGT-4083"
+}

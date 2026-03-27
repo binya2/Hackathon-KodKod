@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
 
 from data_pipeline.attack_commander.models.models import EngageRequest, DeployRequest, NewTargetRequest, RecallRequest, \
-    ManualMoveRequest, ResumeAutoRequest
+    ManualMoveRequest, ResumeAutoRequest, CancelTargetRequest
 
 from data_pipeline.attack_commander.services.services import execute_engage, execute_drone_deployment, \
-    spawn_target_with_swarm, execute_recall, execute_manual_move, execute_resume_auto
+    spawn_target_with_swarm, execute_recall, execute_manual_move, execute_resume_auto, execute_cancel_target
 
 router = APIRouter()
 
@@ -84,6 +84,17 @@ async def resume_auto(req: ResumeAutoRequest):
     try:
         payload = await execute_resume_auto(req.drone_id)
         return {'status': 'resume_auto_sent', 'payload': payload}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/cancel_target')
+async def cancel_target(req: CancelTargetRequest):
+    try:
+        payload = await execute_cancel_target(req.target_id)
+        return {'status': 'target_cancelled', 'payload': payload}
     except HTTPException:
         raise
     except Exception as e:
