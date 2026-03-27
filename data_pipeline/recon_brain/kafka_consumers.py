@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from typing import AsyncIterable, Dict
 from aiokafka import AIOKafkaProducer
 
-from data_pipeline.shared_models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
+from data_pipeline.shared.models import TargetTelemetry, NavigationCommand, GeoPoint, DroneTelemetry
 from data_pipeline.recon_brain.state_manager import (
     update_drone_telemetry,
     get_active_recon_drone_for_target,

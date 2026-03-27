@@ -12,7 +12,7 @@ from data_pipeline.attack_brain.state_manager import (
     get_active_targets,
     get_drones_on_target,
 )
-from data_pipeline.shared_models import GeoPoint, DroneCommand
+from data_pipeline.shared.models import GeoPoint, DroneCommand
 
 logger = logging.getLogger(__name__)
 

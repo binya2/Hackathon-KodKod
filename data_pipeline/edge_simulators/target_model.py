@@ -1,4 +1,4 @@
-from data_pipeline.shared_models import GeoPoint, TargetTelemetry, TargetType
+from data_pipeline.shared.models import GeoPoint, TargetTelemetry, TargetType
 
 
 class TargetState:

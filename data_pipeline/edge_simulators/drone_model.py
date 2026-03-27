@@ -2,7 +2,7 @@ import math
 import random
 from datetime import datetime, timezone
 from typing import Optional
-from data_pipeline.shared_models import DroneTelemetry, GeoPoint
+from data_pipeline.shared.models import DroneTelemetry, GeoPoint
 
 BASE_LAT = 31.800
 BASE_LON = 35.100

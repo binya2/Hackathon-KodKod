@@ -10,7 +10,7 @@ from data_pipeline.attack_brain.state_manager import (
     get_active_attack_drones,
     get_sleeping_attack_drones,
 )
-from data_pipeline.shared_models import DroneTelemetry
+from data_pipeline.shared.models import DroneTelemetry
 
 logger = logging.getLogger(__name__)
 
