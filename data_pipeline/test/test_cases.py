@@ -138,3 +138,51 @@ async def run_manual_override_tests(client):
     print_result("הגנת סטטוס ידני", success, f"סטטוס: {drone_manual.get('flight_status') if drone_manual else 'N/A'}")
 
     await client.post(f"{COMMANDER_URL}/recall_drone", json={"drone_id": drone_id})
+
+
+async def run_edge_cases_tests(client):
+    from utils import COMMANDER_URL, get_state, print_result
+
+    print("\n=== שלב 4: בדיקות קצה ועמידות (Edge Cases) ===")
+
+    # מושכים את מצב המערכת כדי למצוא "שחקנים" לניסוי
+    state = await get_state(client)
+    recon_drone = next((d for d in state.get("recon_data", [])), None)
+    sleeping_attack = next((d for d in state.get("attack_data", []) if d.get("flight_status") == "SLEEP"), None)
+
+    # ניצור מטרה פיקטיבית מהירה רק כדי שיהיה על מה לנסות לירות
+    resp_tgt = await client.post(f"{COMMANDER_URL}/new_target", json={"lat": 31.7, "lon": 35.2})
+    target_id = resp_tgt.json().get("target_id") if resp_tgt.status_code == 200 else "TGT-EDGE"
+
+    for _ in range(15):
+        current_state = await get_state(client)
+        if any(t["target_id"] == target_id for t in current_state.get("target_data", [])):
+            break
+        await asyncio.sleep(0.5)
+
+    # 1. ניסיון ירי עם רחפן תצפית (מצפים ל-400)
+    if recon_drone:
+        print("  🧪 בודק חסימת פקודת תקיפה לרחפן תצפית...")
+        payload = {"action": "engage", "target_id": target_id, "drone_id": recon_drone["drone_id"]}
+        resp = await client.post(f"{COMMANDER_URL}/engage", json=payload)
+        print_result("חסימת ירי לרחפן תצפית", resp.status_code == 400, f"קוד שגיאה: {resp.status_code}")
+
+    # 2. ניסיון תנועה ידנית מחוץ לגבולות הפיזיקליים (Pydantic מצפה ל-422)
+    if recon_drone:
+        print("  🧪 בודק תנועה ידנית אל מחוץ לאטמוספרה/גבולות...")
+        # קו רוחב 95 חורג מההגבלות של -90 עד 90
+        payload = {"drone_id": recon_drone["drone_id"], "lat": 95.0, "lon": 35.0, "alt": 100.0}
+        resp = await client.post(f"{COMMANDER_URL}/manual_move", json=payload)
+        print_result("חסימת נ\"צ שגוי בהשתלטות ידנית", resp.status_code == 422, f"קוד שגיאה: {resp.status_code}")
+
+    # 3. פקודה לרחפן פנטום שלא קיים במערכת (מצפים ל-404)
+    print("  🧪 בודק פקודת חזרה לבסיס לרחפן לא קיים...")
+    resp = await client.post(f"{COMMANDER_URL}/recall_drone", json={"drone_id": "DRN-GHOST-99"})
+    print_result("טיפול ברחפן לא קיים (Recall)", resp.status_code == 404, f"קוד שגיאה: {resp.status_code}")
+
+    # 4. ניסיון תקיפה עם רחפן שישן בבסיס (מצפים ל-400)
+    if sleeping_attack:
+        print("  🧪 בודק חסימת תקיפה לרחפן בסטטוס SLEEP...")
+        payload = {"action": "engage", "target_id": target_id, "drone_id": sleeping_attack["drone_id"]}
+        resp = await client.post(f"{COMMANDER_URL}/engage", json=payload)
+        print_result("חסימת ירי לרחפן ישן", resp.status_code == 400, f"קוד שגיאה: {resp.status_code}")

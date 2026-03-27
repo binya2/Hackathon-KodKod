@@ -1,14 +1,11 @@
 import json
 import logging
-import os
-import redis.asyncio as redis
 from datetime import datetime, timezone
-from data_pipeline.shared_models import WorldState, DroneTelemetry, TargetTelemetry
+
+from data_pipeline.shared.models import WorldState, DroneTelemetry, TargetTelemetry
+from data_pipeline.shared.redis_utils import redis_client
 
 logger = logging.getLogger(__name__)
-
-# Initialize Redis client
-redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
@@ -21,8 +18,8 @@ async def update_drone_telemetry(telemetry: DroneTelemetry):
 
         # Detect "Ghost SLEEP": Simulator sends SLEEP after Brain already set mission status
         is_ghost_sleep = (
-            current_data.get("flight_status") in ["EN_ROUTE", "ACTIVE", "ATTACKING"] and
-            new_data.get("flight_status") == "SLEEP"
+                current_data.get("flight_status") in ["EN_ROUTE", "ACTIVE", "ATTACKING"] and
+                new_data.get("flight_status") == "SLEEP"
         )
 
         if is_ghost_sleep:

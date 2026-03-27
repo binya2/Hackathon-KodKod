@@ -1,13 +1,13 @@
 import logging
-import os
-import redis.asyncio as redis
 from typing import List
-from data_pipeline.shared_models import DroneTelemetry, TargetTelemetry
+
+from data_pipeline.shared.models import DroneTelemetry
+from data_pipeline.shared.redis_utils import redis_client
+
+# from shared.models import DroneTelemetry, TargetTelemetry
+# from shared.redis_utils import redis_client
 
 logger = logging.getLogger(__name__)
-
-# Initialize Redis client
-redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
 async def update_drone_telemetry(telemetry: DroneTelemetry):
@@ -50,9 +50,9 @@ async def get_active_recon_drone_for_target(target_id: str) -> List[DroneTelemet
     for v in drones_raw.values():
         try:
             d = DroneTelemetry.model_validate_json(v)
-            if (d.role.lower() == "recon" and 
-                d.assigned_target_id == target_id and 
-                d.flight_status not in ["SLEEP", "RETURNING"]):
+            if (d.role.lower() == "recon" and
+                    d.assigned_target_id == target_id and
+                    d.flight_status not in ["SLEEP", "RETURNING"]):
                 matching.append(d)
         except Exception:
             pass

@@ -1,0 +1,17 @@
+import os
+import json
+import redis.asyncio as redis
+
+# Initialize Redis client
+redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
+
+
+def parse_redis_hash(redis_hash_data: dict) -> list:
+    """Parses a Redis hash map (dict of JSON strings) into a list of dicts."""
+    parsed_data = []
+    for v in redis_hash_data.values():
+        try:
+            parsed_data.append(json.loads(v))
+        except Exception:
+            pass
+    return parsed_data

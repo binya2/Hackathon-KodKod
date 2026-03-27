@@ -1,13 +1,10 @@
 import logging
-import os
-import redis.asyncio as redis
 from typing import List, Optional
-from data_pipeline.shared_models import DroneTelemetry, TargetTelemetry
+
+from data_pipeline.shared.models import DroneTelemetry, TargetTelemetry
+from data_pipeline.shared.redis_utils import redis_client
 
 logger = logging.getLogger(__name__)
-
-# Initialize Redis client
-redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
 
 
 async def get_target(target_id: str) -> Optional[TargetTelemetry]:

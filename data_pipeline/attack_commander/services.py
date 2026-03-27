@@ -1,9 +1,7 @@
-import uuid
-import math
-import os
 import json
-import redis.asyncio as redis
-from datetime import datetime, timezone, timedelta
+import math
+import uuid
+
 from fastapi import HTTPException
 
 from data_pipeline.attack_commander.kafka_client import (
@@ -11,25 +9,12 @@ from data_pipeline.attack_commander.kafka_client import (
     log_to_kafka,
     iso8601_utc_now
 )
+from data_pipeline.shared.redis_utils import redis_client, parse_redis_hash
 
 TOPIC_COMMANDS = "commands.attack"
 TOPIC_DEPLOYMENT = "commands.deployment"
 TOPIC_INTEL = "events.intel"
 TOPIC_DRONES = "commands.drones"
-
-# Initialize Redis client
-redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"), decode_responses=True)
-
-
-def _parse_redis_hash(redis_hash_data: dict) -> list:
-    """Parses a Redis hash map (dict of JSON strings) into a list of dicts."""
-    parsed_data = []
-    for v in redis_hash_data.values():
-        try:
-            parsed_data.append(json.loads(v))
-        except Exception:
-            pass
-    return parsed_data
 
 
 async def _fetch_current_state():
@@ -37,8 +22,8 @@ async def _fetch_current_state():
     targets_raw = await redis_client.hgetall("targets")
     drones_raw = await redis_client.hgetall("drones")
 
-    target_data = _parse_redis_hash(targets_raw)
-    all_drones = _parse_redis_hash(drones_raw)
+    target_data = parse_redis_hash(targets_raw)
+    all_drones = parse_redis_hash(drones_raw)
 
     recon_data = [d for d in all_drones if d.get("role", "").lower() == "recon"]
     attack_data = [d for d in all_drones if d.get("role", "").lower() == "attack"]
@@ -71,7 +56,7 @@ async def _validate_recon_for_engage(state: dict, target_id: str):
             recon_json = await redis_client.hget("drones", recon_id)
             if recon_json:
                 recon_data = json.loads(recon_json)
-                
+
                 # Add logical guard: check assigned_target_id in Redis
                 if recon_data.get("assigned_target_id") != target_id:
                     raise HTTPException(status_code=400, detail="Recon drone not locked on target")
@@ -82,12 +67,13 @@ async def _validate_recon_for_engage(state: dict, target_id: str):
                     r_lon = recon_data["position"]["lon"]
                     t_lat = target["position"]["lat"]
                     t_lon = target["position"]["lon"]
-                    
+
                     # Use same distance formula as the test (meters)
-                    dist_m = math.sqrt((r_lat - t_lat)**2 + (r_lon - t_lon)**2) * 111139
-                    
+                    dist_m = math.sqrt((r_lat - t_lat) ** 2 + (r_lon - t_lon) ** 2) * 111139
+
                     # Log the calculated distance to Kafka for debugging
-                    await log_to_kafka("DEBUG", f"Engage Check: Target {target_id}, Recon {recon_id}, Distance: {dist_m:.2f}m")
+                    await log_to_kafka("DEBUG",
+                                       f"Engage Check: Target {target_id}, Recon {recon_id}, Distance: {dist_m:.2f}m")
 
                     # Threshold: 50 meters. Strict limit.
                     if dist_m <= 50:
@@ -96,7 +82,9 @@ async def _validate_recon_for_engage(state: dict, target_id: str):
 
     if not recon_ready:
         await log_to_kafka("WARN", f"Blocked engage on {target_id} - Recon not in range.")
-        raise HTTPException(status_code=400, detail="Forbidden: Cannot engage. Recon drone is deployed but hasn't arrived at the target yet.")
+        raise HTTPException(status_code=400,
+                            detail="Forbidden: Cannot engage. "
+                                   "Recon drone is deployed but hasn't arrived at the target yet.")
 
 
 def _validate_attack_drone_for_engage(state: dict, target_id: str, drone_id: str):
