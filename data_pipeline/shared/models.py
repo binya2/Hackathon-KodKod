@@ -1,27 +1,21 @@
 from __future__ import annotations
-
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
-
 from pydantic import BaseModel, Field
 
 
-# %% Enums Definition
-
 class DroneRole(str, Enum):
-    RECON = "recon"
-    ATTACK = "attack"
-    RELAY = "relay"
+    RECON = 'recon'
+    ATTACK = 'attack'
+    RELAY = 'relay'
 
 
 class TargetType(str, Enum):
-    VEHICLE = "vehicle"
-    INFANTRY = "infantry"
-    STRUCTURE = "structure"
+    VEHICLE = 'vehicle'
+    INFANTRY = 'infantry'
+    STRUCTURE = 'structure'
 
-
-# %% Base Models Definition
 
 class GeoPoint(BaseModel):
     lat: float
@@ -38,20 +32,18 @@ class DroneTelemetry(BaseModel):
     heading: float
     battery_percent: float
     weapons_count: int = 0
-    flight_status: str = "SLEEP"
+    flight_status: str = 'SLEEP'
     assigned_target_id: Optional[str] = None
 
 
 class TargetTelemetry(BaseModel):
     target_id: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    target_type: str = "vehicle"
+    target_type: str = 'vehicle'
     position: GeoPoint
     confidence: float
     health: float = 100.0
 
-
-# %% Command Models
 
 class NavigationCommand(BaseModel):
     drone_id: str
@@ -65,8 +57,6 @@ class DroneCommand(BaseModel):
     position: GeoPoint
     flight_status: Optional[str] = None
 
-
-# %% State Aggregator Models
 
 class WorldState(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
