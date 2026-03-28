@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException
 
 from data_pipeline.attack_commander.models.models import EngageRequest, DeployRequest, NewTargetRequest, RecallRequest, \
     ManualMoveRequest, ResumeAutoRequest, CancelTargetRequest
-
 from data_pipeline.attack_commander.services.services import execute_engage, execute_drone_deployment, \
     spawn_target_with_swarm, execute_recall, execute_manual_move, execute_resume_auto, execute_cancel_target
+from data_pipeline.attack_commander.services.services import _fetch_current_state
 
 router = APIRouter()
 
@@ -13,7 +13,6 @@ router = APIRouter()
 async def engage(req: EngageRequest):
     if req.action != 'engage':
         raise HTTPException(status_code=400, detail='Invalid action.')
-    from data_pipeline.attack_commander.services.services import _fetch_current_state
     state = await _fetch_current_state()
     target_exists = any((t['target_id'] == req.target_id for t in state.get('target_data', [])))
     if not target_exists:
@@ -31,7 +30,6 @@ async def engage(req: EngageRequest):
 async def deploy_drone(req: DeployRequest):
     if req.role not in ['recon', 'attack']:
         raise HTTPException(status_code=400, detail="Invalid role. Must be 'recon' or 'attack'.")
-    from data_pipeline.attack_commander.services.services import _fetch_current_state
     state = await _fetch_current_state()
     target_exists = any((t['target_id'] == req.target_id for t in state.get('target_data', [])))
     if not target_exists:

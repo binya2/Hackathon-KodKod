@@ -56,7 +56,6 @@ class Drone:
     def manual_move(self, lat: float, lon: float, alt: float):
         print(f'[Drone] {self.drone_id} manual move to {lat}, {lon}, {alt}')
         self.flight_status = 'MANUAL'
-        # self.assigned_target_id = None
         self.timestamp = datetime.now(timezone.utc)
         self.update_waypoint(lat, lon, alt)
 
@@ -69,9 +68,6 @@ class Drone:
         self._check_battery_and_crash(dt)
         self._check_arrival_at_base()
         return self._check_strike_condition()
-
-    def _check_arrival_at_target(self):
-        pass
 
     def _check_strike_condition(self) -> Optional[dict]:
         if self.flight_status != 'ATTACKING' or not self.assigned_target_id:

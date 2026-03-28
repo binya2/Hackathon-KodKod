@@ -1,8 +1,8 @@
-import json
-import math
 import uuid
-from data_pipeline.attack_commander.services.kafka_client import produce_message, log_to_kafka, iso8601_utc_now
+
 from fastapi import HTTPException
+
+from data_pipeline.attack_commander.services.kafka_client import produce_message, log_to_kafka, iso8601_utc_now
 from data_pipeline.shared.redis_utils import redis_client, parse_redis_hash
 
 TOPIC_COMMANDS = 'commands.attack'
