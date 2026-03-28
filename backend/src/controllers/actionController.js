@@ -1,5 +1,9 @@
 import State from '../models/stateModel.js';
 
+const COMMANDER_URL = process.env.COMMANDER_URL || 'http://localhost:8001';
+const AGGREGATOR_URL = process.env.AGGREGATOR_URL || 'http://localhost:8000';
+const HISTORY_URL = process.env.HISTORY_URL || 'http://localhost:8002';
+
 export const handleEngage = async (req, res) => {
     const { action, target_id, drone_id } = req.body;
     console.log(action, target_id, drone_id);
@@ -11,7 +15,7 @@ export const handleEngage = async (req, res) => {
         console.log(`🚀 [ENGAGE COMMAND] Received at ${new Date().toISOString()}`);
         console.log(`Target: ${target_id} | Drone: ${drone_id}`);
 
-        const response = await fetch('http://localhost:8001/engage', {
+        const response = await fetch(`${COMMANDER_URL}/engage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, target_id, drone_id })
@@ -41,7 +45,7 @@ export const handleNavigate = async (req, res) => {
         console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
         console.log(`Drone ID: ${drone_id} to Coordinates: ${lat}, ${lon}`);
 
-        const response = await fetch('http://localhost:8001/manual_move', {
+        const response = await fetch(`${COMMANDER_URL}/manual_move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -72,7 +76,7 @@ export const handleAuto = async (req, res) => {
     console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
     console.log(`Drone ID: ${drone_id}`);
     try {
-        const response = await fetch('http://localhost:8001/resume_auto', {
+        const response = await fetch(`${COMMANDER_URL}/resume_auto`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -90,7 +94,7 @@ export const handleAuto = async (req, res) => {
             data: data,
 
         });
-    } catch {
+    } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }
 
@@ -102,7 +106,7 @@ export const handleNewTarget = async (req, res) => {
     console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
 
     try {
-        const response = await fetch('http://localhost:8001/new_target', {
+        const response = await fetch(`${COMMANDER_URL}/new_target`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -119,7 +123,7 @@ export const handleNewTarget = async (req, res) => {
             data: data,
 
         });
-    } catch (err) {
+    } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }
 };
@@ -128,7 +132,7 @@ export const handleNewTarget = async (req, res) => {
 export const getDroneHistory = async (req, res) => {
     try {
         const { droneId,targetId } = req.params;
-        const response = await fetch(`http://localhost:8002/drone_history/${droneId}/${targetId}`);
+        const response = await fetch(`${HISTORY_URL}/drone_history/${droneId}/${targetId}`);
         const data = await response.json()
         res.status(200).json(data);
     } catch (error) {
@@ -139,7 +143,7 @@ export const getDroneHistory = async (req, res) => {
 
 export const getCurrentState = async (req, res) => {
     try {
-        const response = await fetch('http://localhost:8000/api/state', {
+        const response = await fetch(`${AGGREGATOR_URL}/api/state`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' }
         })
@@ -167,7 +171,7 @@ export const handleDeployDrone = async (req, res) => {
     try {
         console.log(`🚀 [DEPLOY COMMAND] Requesting ${role} drone deployment...`);
 
-        const response = await fetch('http://localhost:8001/deploy_drone', {
+        const response = await fetch(`${COMMANDER_URL}/deploy_drone`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -196,7 +200,7 @@ export const handleDeployDrone = async (req, res) => {
 export const handleRecallDrone = async (req, res) => {
     const { drone_id } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/recall_drone', {
+        const response = await fetch(`${COMMANDER_URL}/recall_drone`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -216,7 +220,7 @@ export const handleRecallDrone = async (req, res) => {
 export const handCancelTarget = async (req, res) => {
     const { target_id } = req.body;
     try {
-        const response = await fetch('http://localhost:8001/cancel_target', {
+        const response = await fetch(`${COMMANDER_URL}/cancel_target`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
