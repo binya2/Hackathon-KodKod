@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MapView from "./componentas/mapView";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -228,38 +228,33 @@ export default function App() {
     }, 500);
     return () => clearInterval(interval)
   }, []);
-// App.jsx
-
-useEffect(() => {
-  // פונקציה פנימית שתרוץ בכל אינטרוול
-  const updateTrails = () => {
-    if (!data) return;
-
-    // איסוף כל הרחפנים
-    const allDrones = [
-      ...(data.recon_data || []),
-      ...(data.attack_data || [])
-    ];
-
-    allDrones.forEach(drone => {
-      // בדיקה קריטית: האם יש למטרה ID והאם הוא לא null
-      if (drone.assigned_target_id) {
-        console.log(`Fetching trail for drone ${drone.drone_id} target ${drone.assigned_target_id}`);
-        fetchDroneTrail(drone.drone_id, drone.assigned_target_id);
-      }
-    });
-  };
-
-  // הרצה ראשונה מידית כשיש דאטה
-  if (data) {
-    updateTrails();
-  }
-
-  // הגדרת האינטרוול
-  const interval = setInterval(updateTrails, 2000);
-
-  return () => clearInterval(interval);
-}, [data]); // חשוב ש-data יהיה כאן כדי שהאינטרוול יתעדכן כשהמידע משתנה
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+  useEffect(() => {
+    const updateTrails = () => {
+      // משתמשים ב-Ref כדי לקבל את הדאטה בלי לגרום לרינדור מחדש של האפקט
+      const currentData = dataRef.current;
+      if (!currentData) return;
+  
+      const allDrones = [
+        ...(currentData.recon_data || []),
+        ...(currentData.attack_data || [])
+      ];
+  
+      allDrones.forEach(drone => {
+        if (drone.assigned_target_id && drone.flight_status !== "SLEEP") {
+          fetchDroneTrail(drone.drone_id, drone.assigned_target_id);
+        }
+      });
+    };
+  
+    // אינטרוול קבוע שלא נמחק ונוצר מחדש
+    const interval = setInterval(updateTrails, 3000); // 3 שניות זה מספיק לשובל
+  
+    return () => clearInterval(interval);
+  }, []); // מערך ריק - רץ פעם אחת בלבד בטעינה
   return (
     <div className="h-screen w-screen" style={{ position: "relative", height: "100vh", width: "100%" }}>
       {manualDrone && (

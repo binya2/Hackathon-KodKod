@@ -18,7 +18,7 @@ export const handleEngage = async (req, res) => {
         });
 
         const data = await response.json();
-        console.log(data);
+
         return res.status(200).json({
             status: 'success',
             message: `Engage command for ${drone_id} received and relayed to tactical engine`,
@@ -52,7 +52,6 @@ export const handleNavigate = async (req, res) => {
             })
         })
         const data = await response.json();
-        console.log(data);
 
         return res.status(200).json({
             status: 'success',
@@ -114,7 +113,6 @@ export const handleNewTarget = async (req, res) => {
             })
         });
         const data = await response.json();
-        console.log(data);
         return res.status(200).json({
             status: 'success',
             message: 'Navigation update successful',
@@ -132,7 +130,6 @@ export const getDroneHistory = async (req, res) => {
         const { droneId,targetId } = req.params;
         const response = await fetch(`http://localhost:8002/drone_history/${droneId}/${targetId}`);
         const data = await response.json()
-        console.log(data);
         res.status(200).json(data);
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
