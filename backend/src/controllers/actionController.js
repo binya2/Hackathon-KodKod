@@ -18,7 +18,7 @@ export const handleEngage = async (req, res) => {
         });
 
         const data = await response.json();
-         console.log(data);
+        console.log(data);
         return res.status(200).json({
             status: 'success',
             message: `Engage command for ${drone_id} received and relayed to tactical engine`,
@@ -52,7 +52,7 @@ export const handleNavigate = async (req, res) => {
             })
         })
         const data = await response.json();
-
+        console.log(data);
 
         return res.status(200).json({
             status: 'success',
@@ -70,9 +70,9 @@ export const handleAuto = async (req, res) => {
     const { drone_id } = req.body;
     if (!drone_id) return res.status(400).json({ status: 'error', message: 'Missing field: drone_id' });
 
-        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
-        console.log(`Drone ID: ${drone_id}`);
-try{
+    console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
+    console.log(`Drone ID: ${drone_id}`);
+    try {
         const response = await fetch('http://localhost:8001/resume_auto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -89,27 +89,27 @@ try{
             status: 'success',
             message: 'Navigation update successful',
             data: data,
-                
+
         });
-    }catch{
+    } catch {
         res.status(500).json({ status: 'error', message: error.message });
     }
 
 };
 
 export const handleNewTarget = async (req, res) => {
-    const { lat,lon } = req.body;
+    const { lat, lon } = req.body;
 
-        console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
+    console.log(`📍 [NAVIGATION COMMAND] Received at ${new Date().toISOString()}`);
 
-try{
+    try {
         const response = await fetch('http://localhost:8001/new_target', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
 
-                lat:lat,
-                lon,lon
+                lat: lat,
+                lon, lon
 
             })
         });
@@ -119,9 +119,9 @@ try{
             status: 'success',
             message: 'Navigation update successful',
             data: data,
-                
+
         });
-    }catch(err){
+    } catch (err) {
         res.status(500).json({ status: 'error', message: error.message });
     }
 };
@@ -129,17 +129,11 @@ try{
 
 export const getDroneHistory = async (req, res) => {
     try {
-        const { droneId } = req.params;
-        const history = await State.find({ "recon_data.active_drone": droneId })
-            .sort({ timestamp: -1 })
-            .limit(40);
-
-        const path = history.map(item => ({
-            lat: item.recon_data.telemetry.lat,
-            lng: item.recon_data.telemetry.lon
-        }));
-
-        res.status(200).json(path.reverse());
+        const { droneId,targetId } = req.params;
+        const response = await fetch(`http://localhost:8002/drone_history/${droneId}/${targetId}`);
+        const data = await response.json()
+        console.log(data);
+        res.status(200).json(data);
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }
@@ -180,10 +174,10 @@ export const handleDeployDrone = async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-               role:role,
-               target_id:target_id
+                role: role,
+                target_id: target_id
+            })
         })
-    })
         const data = await response.json();
 
         return res.status(200).json({
@@ -203,17 +197,38 @@ export const handleDeployDrone = async (req, res) => {
 }
 
 export const handleRecallDrone = async (req, res) => {
-    const {  drone_id } = req.body;
+    const { drone_id } = req.body;
     try {
         const response = await fetch('http://localhost:8001/recall_drone', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              drone_id:drone_id
+                drone_id: drone_id
             })
         })
 
         const data = await response.json();
+        return res.status(200).json(data);
+
+    } catch (error) {
+        console.error('Deployment Error:', error.message);
+        return res.status(500).json({ status: 'error', message: 'Internal server error during deployment' });
+    }
+}
+
+export const handCancelTarget = async (req, res) => {
+    const { target_id } = req.body;
+    try {
+        const response = await fetch('http://localhost:8001/cancel_target', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_id:target_id
+            })
+        })
+
+        const data = await response.json();
+        console.log(data);
         return res.status(200).json(data);
 
     } catch (error) {

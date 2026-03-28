@@ -1,5 +1,5 @@
 import express from 'express';
-import { getCurrentState, handleEngage, handleNavigate, getDroneHistory, handleDeployDrone, handleAuto, handleNewTarget, handleRecallDrone } from '../controllers/actionController.js';
+import { getCurrentState, handleEngage, handleNavigate, getDroneHistory, handleDeployDrone, handleAuto, handleNewTarget, handleRecallDrone, handCancelTarget } from '../controllers/actionController.js';
 import { handleStrikeOrder } from "../controllers/attackController.js";
 
 const router = express.Router();
@@ -20,11 +20,13 @@ router.post('/new_target',handleNewTarget)
 router.post('/strike', handleStrikeOrder);
 
 // שליפת היסטוריית מסלול של רחפן
-router.get('/history/:droneId', getDroneHistory);
+router.get('/drone_history/:droneId/:targetId', getDroneHistory);
 
 // פקודה לשינוי מצב של רחפן ממצב שינה לתפקיד ששולחים בבקשה 
 router.post('/deploy_drone', handleDeployDrone);
 
 router.post('/recall_drone',handleRecallDrone)
+
+router.post('/cancel_target',handCancelTarget)
 
 export default router;

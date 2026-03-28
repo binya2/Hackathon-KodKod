@@ -18,6 +18,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export default function App() {
+  const [droneTrails, setDroneTrails] = useState({});
   const [explosionPos, setExplosionPos] = useState(null);
   const [currentTargetId, setCurrentTargetId] = useState(null);
   const [data, setData] = useState(null);
@@ -149,7 +150,46 @@ export default function App() {
     }
   };
 
+  const handleCancelTarget = async (targetId) => {
+    try {
+      const response = await fetch("http://localhost:3001/api/actions/cancel_target", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_id: targetId
+        }),
+      });
 
+      if (response.ok) {
+        console.log(`Target ${targetId} cancelled successfully`);
+        // חיווי אופטימי: אם המטרה הנוכחית בוטלה, נאפס את ה-ID שלה ב-State
+        if (currentTargetId === targetId) {
+          setCurrentTargetId(null);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to cancel target:", err);
+    }
+  };
+
+  const fetchDroneTrail = async (droneId, targetId) => {
+    try {
+      const url = `http://localhost:3001/api/actions/drone_history/${droneId}/${targetId}`;
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const historyPoints = await response.json();
+        const trailCoordinates = historyPoints.map(p => [p.lat, p.lon]);
+  
+        setDroneTrails(prev => ({
+          ...prev,
+          [droneId]: trailCoordinates
+        }));
+      }
+    } catch (err) {
+      console.error("Fetch trail error:", err);
+    }
+  };
 
 
   async function fetchData() {
@@ -188,6 +228,38 @@ export default function App() {
     }, 500);
     return () => clearInterval(interval)
   }, []);
+// App.jsx
+
+useEffect(() => {
+  // פונקציה פנימית שתרוץ בכל אינטרוול
+  const updateTrails = () => {
+    if (!data) return;
+
+    // איסוף כל הרחפנים
+    const allDrones = [
+      ...(data.recon_data || []),
+      ...(data.attack_data || [])
+    ];
+
+    allDrones.forEach(drone => {
+      // בדיקה קריטית: האם יש למטרה ID והאם הוא לא null
+      if (drone.assigned_target_id) {
+        console.log(`Fetching trail for drone ${drone.drone_id} target ${drone.assigned_target_id}`);
+        fetchDroneTrail(drone.drone_id, drone.assigned_target_id);
+      }
+    });
+  };
+
+  // הרצה ראשונה מידית כשיש דאטה
+  if (data) {
+    updateTrails();
+  }
+
+  // הגדרת האינטרוול
+  const interval = setInterval(updateTrails, 2000);
+
+  return () => clearInterval(interval);
+}, [data]); // חשוב ש-data יהיה כאן כדי שהאינטרוול יתעדכן כשהמידע משתנה
   return (
     <div className="h-screen w-screen" style={{ position: "relative", height: "100vh", width: "100%" }}>
       {manualDrone && (
@@ -215,6 +287,7 @@ export default function App() {
         manualDrone={manualDrone}
         setManualDrone={setManualDrone}
         explosionPos={explosionPos}
+        droneTrails={droneTrails}
       >
         {explosionPos && <ExplosionMarker position={explosionPos} />}
       </MapView>
@@ -226,6 +299,7 @@ export default function App() {
         onStartMission={handleStartMission}
         onRecall={handleRecall}
         onManualDeploy={handleManualDeploy}
+        onTarget={handleCancelTarget}
       />
       {manualDrone && (
         <button className="resume-btn" onClick={() => handleResumeAuto(manualDrone.drone_id)}>

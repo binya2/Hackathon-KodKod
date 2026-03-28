@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 
-export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMission, onRecall, onManualDeploy }) {
+export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMission, onRecall, onManualDeploy, onTarget }) {
     if (!data) return <div className="side-panel">ממתין לנתונים...</div>;
-    const [count,setCount] = useState(20)
+    const [count, setCount] = useState(20)
     const reconDrones = data.recon_data || [];
     const attackDrones = data.attack_data || [];
-    if(attackDrones.length > 0 && !attackDrones.weapons_count){
-        attackDrones.forEach((t)=>{
-            t["weapons_count"] = count
-        })
-    }
 
     return (
         <div className="side-panel" style={{
@@ -76,9 +71,10 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
                                 הזנק למטרה 🚀
                             </button>
                             <button
-                                onClick={() => {onEngage(drone.drone_id)
-                                setCount(count - 1)
-                                
+                                onClick={() => {
+                                    onEngage(drone.drone_id)
+
+
                                 }
                                 }
                                 disabled={drone.weapons_count === 0}
@@ -96,6 +92,51 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
                     </div>
                 ))}
                 {attackDrones.length === 0 && <div style={{ fontSize: '12px', opacity: 0.5 }}>אין רחפני תקיפה זמינים</div>}
+            </section>
+            {/* רשימת מטרות פעילות בסוף לוח הבקרה */}
+            <section style={{ marginTop: '20px', padding: '10px', borderTop: '2px solid #444' }}>
+                <h3 style={{ color: '#fff', fontSize: '16px' }}>🎯 מטרות במרחב</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {data?.target_data && data.target_data.length > 0 ? (
+                        data.target_data.map((target) => (
+                            <div key={target.target_id} style={{
+                                padding: '10px',
+                                backgroundColor: '#2a2a2a',
+                                borderRadius: '5px',
+                                borderRight: `4px solid ${target.health > 0 ? '#4caf50' : '#f44336'}`
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: '#eee', fontWeight: 'bold' }}>ID: {target.target_id}</span>
+                                    <span style={{ color: target.health < 30 ? 'red' : '#4caf50' }}>
+                                        HP: {target.health}%
+                                    </span>
+                                </div>
+
+                                <div style={{ fontSize: '12px', color: '#aaa', marginTop: '5px' }}>
+                                    סטטוס: {target.status || 'Active'} | ביטחון זיהוי: {(target.confidence * 100).toFixed(0)}%
+                                </div>
+
+                                <button
+                                    onClick={() => onTarget(target.target_id)}
+                                    style={{
+                                        marginTop: '8px',
+                                        width: '100%',
+                                        padding: '5px',
+                                        backgroundColor: '#d32f2f',
+                                        color: 'white',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        borderRadius: '3px'
+                                    }}
+                                >
+                                    ❌ ביטול משימה והשמדה
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <div style={{ color: '#888', fontStyle: 'italic' }}>אין מטרות פעילות כרגע</div>
+                    )}
+                </div>
             </section>
         </div>
     );
