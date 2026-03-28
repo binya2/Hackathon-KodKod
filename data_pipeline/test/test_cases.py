@@ -313,7 +313,7 @@ async def run_extreme_scenarios_test(client):
 
 async def run_ghost_striker_test(client):
     print("\n=== שלב 9: מבחני חסינות נוספים (Ghost Striker Abort) ===")
-    t_id = await _create_mission_target(client, 31.84, 35.14)
+    t_id = await _create_mission_target(client, 31.8015, 35.1015)
     if not t_id:
         return
 
