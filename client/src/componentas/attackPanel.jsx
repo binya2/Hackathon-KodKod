@@ -98,7 +98,8 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
                 <h3 style={{ color: '#fff', fontSize: '16px' }}>🎯 מטרות במרחב</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {data?.target_data && data.target_data.length > 0 ? (
-                        data.target_data.map((target) => (
+                        data.target_data.filter((t)=>t.health > 0)
+                        .map((target) => (
                             <div key={target.target_id} style={{
                                 padding: '10px',
                                 backgroundColor: '#2a2a2a',
