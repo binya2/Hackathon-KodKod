@@ -1,5 +1,3 @@
-import State from '../models/stateModel.js';
-
 const COMMANDER_URL = process.env.COMMANDER_URL || 'http://localhost:8001';
 const AGGREGATOR_URL = process.env.AGGREGATOR_URL || 'http://localhost:8000';
 const HISTORY_URL = process.env.HISTORY_URL || 'http://localhost:8002';
@@ -112,7 +110,7 @@ export const handleNewTarget = async (req, res) => {
             body: JSON.stringify({
 
                 lat: lat,
-                lon, lon
+                lon: lon
 
             })
         });

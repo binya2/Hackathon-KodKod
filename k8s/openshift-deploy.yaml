@@ -1,0 +1,434 @@
+---
+# ==========================================
+# 1. התשתיות (Infrastructure)
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: docker.io/library/mongo:7
+        ports:
+        - containerPort: 27017
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+spec:
+  ports:
+  - port: 27017
+  selector:
+    app: mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: redis
+---
+# Kafka Deployment (Zookeeper-less KRaft setup compatible with OCP limits)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.8.3
+        ports:
+        - containerPort: 9092
+        - containerPort: 29092
+        env:
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@kafka:9093"
+        - name: CLUSTER_ID
+          value: "MkU3OEVBNTcwNTJENDM2Qk"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+        - name: KAFKA_LISTENERS
+          value: "INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "INTERNAL://kafka:29092,EXTERNAL://kafka:9092"
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: "INTERNAL"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+spec:
+  ports:
+  - name: external
+    port: 9092
+  - name: internal
+    port: 29092
+  selector:
+    app: kafka
+
+---
+# ==========================================
+# 2. השרתים וה"מוחות" (Python Microservices)
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: state-aggregator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: state-aggregator
+  template:
+    metadata:
+      labels:
+        app: state-aggregator
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/state_aggregator:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: state-aggregator
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: state-aggregator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attack-commander
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: attack-commander
+  template:
+    metadata:
+      labels:
+        app: attack-commander
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/attack_commander:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attack-commander
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: attack-commander
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: history-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: history-service
+  template:
+    metadata:
+      labels:
+        app: history-service
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/history_service:v1
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MONGO_URI
+          value: "mongodb://mongo:27017"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: history-service
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: history-service
+---
+# Brains & Simulators (Workers - No Ports)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attack-brain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: attack-brain
+  template:
+    metadata:
+      labels:
+        app: attack-brain
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/attack_brain:v1
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recon-brain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recon-brain
+  template:
+    metadata:
+      labels:
+        app: recon-brain
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/recon_brain:v1
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drone-sim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drone-sim
+  template:
+    metadata:
+      labels:
+        app: drone-sim
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/drone_sim:v1
+        command: ["python", "drones/drones_sim.py"]
+        args: ["--kafka-bootstrap", "kafka:29092", "--num-drones", "20"]
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: target-sim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: target-sim
+  template:
+    metadata:
+      labels:
+        app: target-sim
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/target_sim:v1
+        command: ["python", "targets/target_sim.py"]
+        args: ["--kafka-bootstrap", "kafka:29092"]
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-aggregator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-aggregator
+  template:
+    metadata:
+      labels:
+        app: log-aggregator
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/log_aggregator:v1
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+
+---
+# ==========================================
+# 3. הפולסטאק והחשיפה החוצה (Node + React + Routes)
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-backend
+  template:
+    metadata:
+      labels:
+        app: node-backend
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/node_backend:v1
+        ports:
+        - containerPort: 3001
+        env:
+        - name: COMMANDER_URL
+          value: "http://attack-commander:8000"
+        - name: AGGREGATOR_URL
+          value: "http://state-aggregator:8000"
+        - name: HISTORY_URL
+          value: "http://history-service:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-backend
+spec:
+  ports:
+  - port: 3001
+  selector:
+    app: node-backend
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: node-api-route
+spec:
+  to:
+    kind: Service
+    name: node-backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: react-client
+  template:
+    metadata:
+      labels:
+        app: react-client
+    spec:
+      containers:
+      - name: main
+        image: __YOUR_REGISTRY__/react_client:v1
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-client
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: react-client
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ui-route
+spec:
+  to:
+    kind: Service
+    name: react-client
