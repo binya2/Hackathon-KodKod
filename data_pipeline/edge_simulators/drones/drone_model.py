@@ -97,7 +97,7 @@ class Drone:
 
     def _get_speed_multiplier(self, dist: float) -> float:
         if self.flight_status == 'MANUAL':
-            return 2.0
+            return 1.0
         if self.flight_status == 'EN_ROUTE':
             return 1.0
         if self.flight_status == 'RETURNING':
