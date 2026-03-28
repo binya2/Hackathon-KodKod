@@ -28,9 +28,16 @@ async def assignment_loop(producer: AIOKafkaProducer):
 async def _process_drone_assignment(drone, producer, all_drones, active_targets):
     target = await get_target(drone.assigned_target_id)
     if not target or target.health <= 0:
-        target = find_new_target(active_targets, all_drones)
-        if not target:
+        if drone.flight_status == 'ATTACKING':
+            # Abort strike mid-dive!
+            abort_cmd = DroneCommand(drone_id=drone.drone_id, position=drone.position, flight_status='ACTIVE', target_id=drone.assigned_target_id)
+            await producer.send_and_wait('commands.drones', abort_cmd.model_dump_json().encode('utf-8'))
+            drone.flight_status = 'ACTIVE' # Optimistic local update
+        new_target = find_new_target(active_targets, all_drones)
+        if not new_target:
             return await recall_drone(drone.drone_id, producer)
+        target = new_target
+
     if drone.flight_status == 'ATTACKING':
         return
     if drone.role == 'attack' and drone.weapons_count == 0:
@@ -45,5 +52,5 @@ async def _send_drone_waypoint(drone, target, producer):
     waypoint = calculate_waypoint(target.position, index)
     dist_m = calculate_distance_m(drone.position, target.position)
     cmd = DroneCommand(drone_id=drone.drone_id, position=waypoint,
-                       flight_status='ACTIVE' if dist_m <= 20.0 else 'EN_ROUTE')
+                       flight_status='ACTIVE' if dist_m <= 20.0 else 'EN_ROUTE', target_id=target.target_id)
     await producer.send_and_wait('commands.drones', cmd.model_dump_json().encode('utf-8'))

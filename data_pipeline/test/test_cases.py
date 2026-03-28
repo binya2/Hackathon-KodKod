@@ -122,6 +122,9 @@ async def run_manual_override_tests(client):
     auto_success = drone_auto and drone_auto.get('flight_status') in ['ACTIVE', 'EN_ROUTE']
     print_result('חזרה למצב אוטונומי', auto_success, f"סטטוס: {(drone_auto.get('flight_status') if drone_auto else 'N/A')}")
 
+    memory_kept = drone_auto and drone_auto.get('assigned_target_id') == target_id
+    print_result('שמירת זיכרון מטרה (Amnesia Bug Fix)', memory_kept, "המטרה נשכחה" if not memory_kept else "")
+
     await client.post(f'{COMMANDER_URL}/recall_drone', json={'drone_id': drone_id})
 
 
@@ -264,3 +267,80 @@ async def run_abort_mission_test(client):
             
     is_returning = returning_count == len(assigned_ids)
     print_result('חזרת הנחיל לבסיס (Auto-Recall)', is_returning, f'{returning_count}/{len(assigned_ids)} רחפנים בדרך חזרה')
+
+
+async def run_extreme_scenarios_test(client):
+    print("\n=== שלב 8: תרחישי קיצון משולבים (Extreme Scenarios) ===")
+
+    print("  🧪 בודק חזרה לאוטומט למטרה שכבר הושמדה (The 'Too Late' Auto)...")
+    t_id = await _create_mission_target(client, 31.83, 35.13)
+    if not t_id:
+        return
+
+    await asyncio.sleep(4)
+    state = await get_state(client)
+    attacker = next((d for d in state.get('attack_data', []) if d.get('assigned_target_id') == t_id), None)
+    
+    if attacker:
+        d_id = attacker['drone_id']
+        move_payload = {'drone_id': d_id, 'lat': 32.0, 'lon': 34.0, 'alt': 100}
+        await client.post(f'{COMMANDER_URL}/manual_move', json=move_payload)
+        await asyncio.sleep(1)
+        
+        await client.post(f'{COMMANDER_URL}/cancel_target', json={'target_id': t_id})
+        await asyncio.sleep(1)
+        
+        await client.post(f'{COMMANDER_URL}/resume_auto', json={'drone_id': d_id})
+        await asyncio.sleep(2.5)
+        
+        state_after = await get_state(client)
+        drone_now = next((d for d in state_after.get('attack_data', []) if d['drone_id'] == d_id), None)
+        success = drone_now and drone_now.get('flight_status') in ['RETURNING', 'SLEEP']
+        print_result("חזרה לאוטומט ללא מטרה (Auto-Recall fallback)", success, f"סטטוס: {drone_now.get('flight_status') if drone_now else 'N/A'}")
+
+        print("  🧪 בודק ביטול מטרה שכבר בוטלה/הושמדה (Double Kill)...")
+        resp_double = await client.post(f'{COMMANDER_URL}/cancel_target', json={'target_id': t_id})
+        print_result("ביטול מטרה כפול (404)", resp_double.status_code == 404, f"קוד: {resp_double.status_code}")
+
+        print("  🧪 הצפת פקודות Recall לאותו רחפן (Command Spamming)...")
+        tasks = [client.post(f'{COMMANDER_URL}/recall_drone', json={'drone_id': d_id}) for _ in range(3)]
+        resps = await asyncio.gather(*tasks)
+        all_200 = all(r.status_code == 200 for r in resps)
+        print_result("הצפת פקודות Recall (Idempotency)", all_200, f"קודים: {[r.status_code for r in resps]}")
+    else:
+        print_result("תרחיש קיצון", False, "לא נמצא רחפן תקיפה להרצת הבדיקה")
+
+
+async def run_ghost_striker_test(client):
+    print("\n=== שלב 9: מבחני חסינות נוספים (Ghost Striker Abort) ===")
+    t_id = await _create_mission_target(client, 31.84, 35.14)
+    if not t_id:
+        return
+
+    print("  ⏳ ממתין להגעת רחפן תקיפה (ACTIVE)...")
+    attacker_id = None
+    for _ in range(20):
+        state = await get_state(client)
+        attacker = next((d for d in state.get('attack_data', []) if d.get('assigned_target_id') == t_id and d.get('flight_status') == 'ACTIVE'), None)
+        if attacker:
+            attacker_id = attacker['drone_id']
+            break
+        await asyncio.sleep(1)
+    
+    if not attacker_id:
+        print_result("Ghost Striker Abort", False, "רחפן לא הגיע למטרה בזמן")
+        return
+
+    print(f"  🚀 שולח פקודת תקיפה לרחפן {attacker_id}...")
+    await client.post(f'{COMMANDER_URL}/engage', json={'action': 'engage', 'target_id': t_id, 'drone_id': attacker_id})
+    await asyncio.sleep(0.2)
+    
+    print(f"  🛑 מבטל את המטרה {t_id} מיד (Mid-Dive)...")
+    await client.post(f'{COMMANDER_URL}/cancel_target', json={'target_id': t_id})
+    
+    await asyncio.sleep(3)
+    state_final = await get_state(client)
+    drone_final = next((d for d in state_final.get('attack_data', []) if d['drone_id'] == attacker_id), None)
+    
+    aborted = drone_final and drone_final.get('flight_status') != 'ATTACKING'
+    print_result("ביטול תקיפה באמצע צלילה (Ghost Striker Abort)", aborted, f"סטטוס סופי: {drone_final.get('flight_status') if drone_final else 'N/A'}")

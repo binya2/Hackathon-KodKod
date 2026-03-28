@@ -2,7 +2,8 @@ import asyncio
 import sys
 import httpx
 from test_cases import run_security_tests, run_mission_flow_tests, run_manual_override_tests, run_edge_cases_tests, \
-    run_recon_first_test, run_multi_target_stress_test, cleanup_all_drones, run_abort_mission_test
+    run_recon_first_test, run_multi_target_stress_test, cleanup_all_drones, run_abort_mission_test, \
+    run_extreme_scenarios_test, run_ghost_striker_test
 from utils import wait_for_system_sync
 
 
@@ -32,6 +33,12 @@ async def main():
         await cleanup_all_drones(client)
 
         await run_abort_mission_test(client)
+        await cleanup_all_drones(client)
+
+        await run_extreme_scenarios_test(client)
+        await cleanup_all_drones(client)
+
+        await run_ghost_striker_test(client)
         await cleanup_all_drones(client)
     print('\n🏁 הבדיקות הסתיימו. אם הכל ירוק, אפשר להמשיך!')
 

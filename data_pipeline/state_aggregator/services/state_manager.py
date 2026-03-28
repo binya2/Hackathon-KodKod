@@ -91,5 +91,5 @@ async def get_world_state() -> WorldState:
                                     key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
     world_state.attack_data = sorted([d for d in drones if d.role.lower() == 'attack'],
                                      key=lambda x: 0 if x.flight_status == 'ACTIVE' else 1)
-    world_state.target_data = [t for t in targets if t.health > 0]
+    world_state.target_data = targets
     return world_state

@@ -56,6 +56,7 @@ class DroneCommand(BaseModel):
     drone_id: str
     position: GeoPoint
     flight_status: Optional[str] = None
+    target_id: Optional[str] = None
 
 
 class WorldState(BaseModel):

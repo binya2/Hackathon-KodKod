@@ -37,13 +37,18 @@ class DroneManager:
             pos = cmd.get('position', {})
             drone.manual_move(pos.get('lat', drone.lat), pos.get('lon', drone.lon), pos.get('alt', drone.alt))
         elif action == 'RESUME_AUTO':
-            drone.flight_status = 'ACTIVE'
+            if drone.assigned_target_id:
+                drone.flight_status = 'ACTIVE'
+            else:
+                drone.recall()
         elif 'position' in cmd:
             if drone.flight_status != 'ATTACKING':
                 pos = cmd.get('position', {})
                 drone.update_waypoint(pos.get('lat'), pos.get('lon'), pos.get('alt', drone.alt))
                 if 'flight_status' in cmd:
                     drone.flight_status = cmd['flight_status']
+                if 'target_id' in cmd and cmd['target_id']:
+                    drone.assigned_target_id = cmd['target_id']
 
     async def _process_attack_command(self, drone: Drone, cmd: Dict[str, Any], producer):
         if drone.role.lower() != 'attack':

@@ -210,12 +210,6 @@ export default function App() {
           }
         })
       }
-      const allDrones = [...(dataFetch.recon_data || []), ...(dataFetch.attack_data || [])];
-      allDrones.forEach(drone => {
-        if (drone.battery_percent < 20 && drone.flight_status !== "RETURNING" && drone.flight_status !== "SLEEP") {
-          handleRecall(drone.drone_id);
-        }
-      });
       setData(dataFetch)
     } catch (err) {
       console.log(err);

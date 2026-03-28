@@ -53,7 +53,7 @@ def _validate_attack_drone_for_engage(state: dict, target_id: str, drone_id: str
         raise HTTPException(status_code=400, detail='Forbidden: Drone is not an attack drone.')
     if drone.get('weapons_count', 0) <= 0:
         raise HTTPException(status_code=400, detail='Forbidden: Drone has no ammunition.')
-    if drone.get('flight_status') not in ['ACTIVE', 'ATTACKING']:
+    if drone.get('flight_status') not in ['ACTIVE', 'ATTACKING', 'MANUAL']:
         raise HTTPException(status_code=400, detail=f"Forbidden: Drone is {drone.get('flight_status')}.")
     if drone.get('assigned_target_id') != target_id:
         raise HTTPException(status_code=400, detail='Forbidden: Drone is not assigned to this target.')
@@ -111,6 +111,8 @@ async def execute_manual_move(drone_id: str, lat: float, lon: float, alt: float)
                  None)
     if not drone:
         raise HTTPException(status_code=404, detail=f'Drone {drone_id} not found.')
+    if drone.get('flight_status') == 'CRASHED':
+        raise HTTPException(status_code=400, detail="Forbidden: Cannot control a CRASHED drone.")
     payload = {'drone_id': drone_id, 'action': 'MANUAL_MOVE', 'position': {'lat': lat, 'lon': lon, 'alt': alt},
                'timestamp': iso8601_utc_now()}
     await produce_message(TOPIC_DRONES, drone_id, payload)
@@ -131,8 +133,8 @@ async def execute_resume_auto(drone_id: str):
 async def execute_cancel_target(target_id: str):
     state = await _fetch_current_state()
     target = next((t for t in state.get('target_data', []) if t['target_id'] == target_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail=f'Target {target_id} not found.')
+    if not target or target.get('health', 0) <= 0:
+        raise HTTPException(status_code=404, detail=f'Target {target_id} not found or already dead.')
     payload = {'action': 'CANCEL_TARGET', 'target_id': target_id, 'timestamp': iso8601_utc_now()}
     await produce_message('events.mission', '', payload)
     return payload

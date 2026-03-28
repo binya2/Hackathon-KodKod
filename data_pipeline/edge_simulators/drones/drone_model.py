@@ -56,7 +56,7 @@ class Drone:
     def manual_move(self, lat: float, lon: float, alt: float):
         print(f'[Drone] {self.drone_id} manual move to {lat}, {lon}, {alt}')
         self.flight_status = 'MANUAL'
-        self.assigned_target_id = None
+        # self.assigned_target_id = None
         self.timestamp = datetime.now(timezone.utc)
         self.update_waypoint(lat, lon, alt)
 
@@ -140,8 +140,7 @@ class Drone:
         if self.battery <= 0:
             self.battery = 0
             self.flight_status = 'CRASHED'
-            if self.alt > 0:
-                self.alt = max(0.0, self.alt - 0.002)
+            self.target_alt = 0.0
 
     def _check_arrival_at_base(self):
         if self.flight_status == 'RETURNING':
