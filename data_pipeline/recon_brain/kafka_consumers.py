@@ -29,6 +29,8 @@ async def process_target_stream(consumer: AsyncIterable, producer: AIOKafkaProdu
                 continue
             active_recon = await get_active_recon_drone_for_target(target.target_id)
             for i, drone in enumerate(active_recon):
+                if drone.flight_status == 'MANUAL':
+                    continue
                 await _issue_recon_nav_command(drone, target, i, producer)
         except Exception as e:
             logger.error('Error processing target in Recon Brain: %s', e)

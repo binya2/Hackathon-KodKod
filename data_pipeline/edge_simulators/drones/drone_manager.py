@@ -42,7 +42,7 @@ class DroneManager:
             else:
                 drone.recall()
         elif 'position' in cmd:
-            if drone.flight_status != 'ATTACKING':
+            if drone.flight_status not in ['ATTACKING', 'MANUAL']:
                 pos = cmd.get('position', {})
                 drone.update_waypoint(pos.get('lat'), pos.get('lon'), pos.get('alt', drone.alt))
                 if 'flight_status' in cmd:
