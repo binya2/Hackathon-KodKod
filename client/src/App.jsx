@@ -23,32 +23,39 @@ export default function App() {
   const [currentTargetId, setCurrentTargetId] = useState(null);
   const [data, setData] = useState(null);
   const [manualDrone, setManualDrone] = useState(null);
-  const handleEngage = async (droneId) => {
-    try {
-      const res = await fetch("http://localhost:3001/api/actions/engage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "engage",
-          target_id: currentTargetId,
-          drone_id: droneId,
-        }),
-      });
-      const target = data.target_data.find((t) => t.target_id === currentTargetId)
-      if (target) {
-        setExplosionPos({
-          lat: target.position.lat,
-          lon: target.position.lon
-        });
+// App.jsx
 
-        setTimeout(() => setExplosionPos(null), 2000);
-      }
-    } catch (err) {
-      console.log(err);
+const handleEngage = async (droneId, targetId) => {
+  // אם לא הועבר targetId, ננסה למצוא אותו בנתונים הקיימים של הרחפן
+  if (!targetId) {
+    console.error(`Drone ${droneId} has no assigned target to engage.`);
+    return;
+  }
+
+  try {
+    const res = await fetch("http://localhost:3001/api/actions/engage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "engage",
+        target_id: targetId, // משתמשים ב-ID הספציפי של הרחפן הזה
+        drone_id: droneId,
+      }),
+    });
+
+    // יצירת פיצוץ במיקום המטרה הספציפית
+    const target = data.target_data.find((t) => t.target_id === targetId);
+    if (target) {
+      setExplosionPos({
+        lat: target.position.lat,
+        lon: target.position.lon
+      });
+      setTimeout(() => setExplosionPos(null), 2000);
     }
-  };
+  } catch (err) {
+    console.log("Engage failed:", err);
+  }
+};
   const handleResumeAuto = async (droneId) => {
     try {
       await fetch("http://localhost:3001/api/actions/auto", {

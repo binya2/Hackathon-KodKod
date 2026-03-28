@@ -22,7 +22,12 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
             <section style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#222', borderRadius: '8px' }}>
                 <h3 style={{ color: '#ffcc00', fontSize: '14px', marginTop: 0 }}>🏁 משימה חדשה</h3>
                 <button
-                    onClick={() => onStartMission(31.8, 35.105)} // נ"צ ברירת מחדל מהאיפיון
+                    onClick={() => {
+                        const kmInDegrees = 0.009;
+                        const randomLat = 31.8 + (Math.random() * 2 - 1) * kmInDegrees;
+                        const randomLon = 35.105 + (Math.random() * 2 - 1) * kmInDegrees;
+                        onStartMission(randomLat, randomLon)
+                    }} // נ"צ ברירת מחדל מהאיפיון
                     style={btnStyle('#ffcc00', false)}
                 >
                     צור מטרה והזנק סיור 🛰️
@@ -71,12 +76,7 @@ export default function UnifiedDronePanel({ data, onTakeoff, onEngage, onStartMi
                                 הזנק למטרה 🚀
                             </button>
                             <button
-                                onClick={() => {
-                                    onEngage(drone.drone_id)
-
-
-                                }
-                                }
+                                onClick={() => onEngage(drone.drone_id, drone.assigned_target_id)}
                                 disabled={drone.weapons_count === 0}
                                 style={btnStyle('#f44336', drone.weapons_count === 0)}
                             >
