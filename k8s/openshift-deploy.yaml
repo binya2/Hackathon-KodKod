@@ -252,6 +252,8 @@ spec:
           value: "kafka:29092"
         - name: REDIS_URL
           value: "redis://redis:6379"
+        - name: K8S_DEPLOYMENT
+          value: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -275,6 +277,8 @@ spec:
           value: "kafka:29092"
         - name: REDIS_URL
           value: "redis://redis:6379"
+        - name: K8S_DEPLOYMENT
+          value: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -293,11 +297,13 @@ spec:
       containers:
       - name: main
         image: __YOUR_REGISTRY__/drone_sim:v1
-        command: ["python", "drones/drones_sim.py"]
-        args: ["--kafka-bootstrap", "kafka:29092", "--num-drones", "20"]
+        command: ["sh", "-c"]
+        args: ["python drones/drones_sim.py --kafka-bootstrap $$KAFKA_BOOTSTRAP_SERVERS --num-drones $$NUM_DRONES"]
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:29092"
+        - name: NUM_DRONES
+          value: "20"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -392,6 +398,9 @@ spec:
   to:
     kind: Service
     name: node-backend
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -432,3 +441,6 @@ spec:
   to:
     kind: Service
     name: react-client
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

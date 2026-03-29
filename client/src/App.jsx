@@ -8,6 +8,7 @@ import "./App.css"
 import ExplosionMarker from "./componentas/explosionMarker";
 import UnifiedDronePanel from "./componentas/attackPanel";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -33,7 +34,7 @@ const handleEngage = async (droneId, targetId) => {
   }
 
   try {
-    const res = await fetch("http://localhost:3001/api/actions/engage", {
+    const res = await fetch(`${API_BASE_URL}/api/actions/engage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -58,7 +59,7 @@ const handleEngage = async (droneId, targetId) => {
 };
   const handleResumeAuto = async (droneId) => {
     try {
-      await fetch("http://localhost:3001/api/actions/auto", {
+      await fetch(`${API_BASE_URL}/api/actions/auto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,7 +74,7 @@ const handleEngage = async (droneId, targetId) => {
 
   const handleTakeoff = async (droneId, lat, lon) => {
     try {
-      const response = await fetch("http://localhost:3001/api/actions/navigate", {
+      const response = await fetch(`${API_BASE_URL}/api/actions/navigate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -90,7 +91,7 @@ const handleEngage = async (droneId, targetId) => {
 
   const handleStartMission = async (lat, lon) => {
     try {
-      const response = await fetch("http://localhost:3001/api/actions/new_target", {
+      const response = await fetch(`${API_BASE_URL}/api/actions/new_target`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,7 +115,7 @@ const handleEngage = async (droneId, targetId) => {
 
   const handleRecall = async (droneId) => {
     try {
-      const response = await fetch("http://localhost:3001/api/actions/recall_drone", {
+      const response = await fetch(`${API_BASE_URL}/api/actions/recall_drone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,7 +140,7 @@ const handleEngage = async (droneId, targetId) => {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/actions/deploy_drone", {
+      const response = await fetch(`${API_BASE_URL}/api/actions/deploy_drone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -159,7 +160,7 @@ const handleEngage = async (droneId, targetId) => {
 
   const handleCancelTarget = async (targetId) => {
     try {
-      const response = await fetch("http://localhost:3001/api/actions/cancel_target", {
+      const response = await fetch(`${API_BASE_URL}/api/actions/cancel_target`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,7 +182,7 @@ const handleEngage = async (droneId, targetId) => {
 
   const fetchDroneTrail = async (droneId, targetId) => {
     try {
-      const url = `http://localhost:3001/api/actions/drone_history/${droneId}/${targetId}`;
+      const url = `${API_BASE_URL}/api/actions/drone_history/${droneId}/${targetId}`;
       const response = await fetch(url);
       
       if (response.ok) {
@@ -201,7 +202,7 @@ const handleEngage = async (droneId, targetId) => {
 
   async function fetchData() {
     try {
-      const res = await fetch("http://localhost:3001/api/actions/state")
+      const res = await fetch(`${API_BASE_URL}/api/actions/state`)
       const dataFetch = await res.json()
 
       if (dataFetch.target_data && data) {
