@@ -90,12 +90,16 @@ spec:
         - containerPort: 9092
         - containerPort: 29092
         env:
+        - name: KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND
+          value: "true"
+        - name: KAFKA_PORT
+          value: ""
         - name: KAFKA_NODE_ID
           value: "1"
         - name: KAFKA_PROCESS_ROLES
           value: "broker,controller"
         - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-          value: "1@kafka:9093"
+          value: "1@127.0.0.1:9093"
         - name: CLUSTER_ID
           value: "MkU3OEVBNTcwNTJENDM2Qk"
         - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
@@ -112,6 +116,12 @@ spec:
           value: "1"
         - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
           value: "true"
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data
@@ -406,18 +416,6 @@ spec:
   selector:
     app: node-backend
 ---
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: node-api-route
-spec:
-  to:
-    kind: Service
-    name: node-backend
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -434,7 +432,8 @@ spec:
     spec:
       containers:
       - name: main
-        image: beni2/react_client:v1
+        image: beni2/react_client:v10 # הגרסה עם הכתובת האמיתית צרובה בפנים
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
 ---
@@ -449,6 +448,19 @@ spec:
   selector:
     app: react-client
 ---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: node-api-route
+spec:
+  to:
+    kind: Service
+    name: node-backend
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Route for Frontend UI
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
