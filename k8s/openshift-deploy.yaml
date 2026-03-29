@@ -21,6 +21,12 @@ spec:
         image: docker.io/library/mongo:7
         ports:
         - containerPort: 27017
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+      volumes:
+      - name: mongodb-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -106,6 +112,16 @@ spec:
           value: "1"
         - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
           value: "true"
+        volumeMounts:
+        - name: kafka-data
+          mountPath: /var/lib/kafka/data
+        - name: kafka-secrets
+          mountPath: /etc/kafka/secrets
+      volumes:
+      - name: kafka-data
+        emptyDir: {}
+      - name: kafka-secrets
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
