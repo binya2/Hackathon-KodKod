@@ -3,7 +3,7 @@ $DOCKER_USER = "beni2"
 $TAG = "v10"
 
 Write-Host "--- Step 1: Nuclear Clean ---" -ForegroundColor Cyan
-oc delete all,pvc,route --all 2>$null
+oc delete all,pvc,statefulset,route,configmap,secret, imagestream --all 2>$null
 
 Write-Host "--- Step 2: Deploying Infrastructure ---" -ForegroundColor Cyan
 oc apply -f k8s/openshift-deploy.yaml

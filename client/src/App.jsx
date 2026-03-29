@@ -205,7 +205,7 @@ const handleEngage = async (droneId, targetId) => {
       const res = await fetch(`${API_BASE_URL}/api/actions/state`)
       const dataFetch = await res.json()
 
-      if (dataFetch.target_data && data) {
+      if (dataFetch.target_data && data && data.target_data) {
         dataFetch.target_data.forEach((target) => {
           const oldTarget = data.target_data.find(t => t.target_id === target.target_id);
           if (oldTarget && oldTarget.health > 0 && target.health <= 0) {
@@ -229,7 +229,7 @@ const handleEngage = async (droneId, targetId) => {
       fetchData()
     }, 500);
     return () => clearInterval(interval)
-  }, []);
+  }, [data]); // Added data to dependency to ensure fetchData has access to latest state
   const dataRef = useRef(data);
   useEffect(() => {
     dataRef.current = data;
@@ -246,7 +246,7 @@ const handleEngage = async (droneId, targetId) => {
       ];
   
       allDrones.forEach(drone => {
-        if (drone.assigned_target_id && drone.flight_status !== "SLEEP") {
+        if (drone && drone.drone_id && drone.assigned_target_id && drone.flight_status !== "SLEEP") {
           fetchDroneTrail(drone.drone_id, drone.assigned_target_id);
         }
       });

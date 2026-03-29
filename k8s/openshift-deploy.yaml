@@ -55,8 +55,15 @@ spec:
       containers:
       - name: redis
         image: redis:7-alpine
+        command: ["redis-server", "--dir", "/data", "--stop-writes-on-bgsave-error", "no"]
         ports:
         - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
