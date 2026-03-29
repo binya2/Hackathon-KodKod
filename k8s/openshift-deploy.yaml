@@ -140,7 +140,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/state_aggregator:v1
+        image: beni2/state_aggregator:v1
         ports:
         - containerPort: 8000
         env:
@@ -175,7 +175,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/attack_commander:v1
+        image: beni2/attack_commander:v1
         ports:
         - containerPort: 8000
         env:
@@ -210,7 +210,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/history_service:v1
+        image: beni2/history_service:v1
         ports:
         - containerPort: 8000
         env:
@@ -246,7 +246,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/attack_brain:v1
+        image: beni2/attack_brain:v1
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:29092"
@@ -271,7 +271,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/recon_brain:v1
+        image: beni2/recon_brain:v1
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:29092"
@@ -296,7 +296,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/drone_sim:v1
+        image: beni2/drone_sim:v1
         command: ["sh", "-c"]
         args: ["python drones/drones_sim.py --kafka-bootstrap $$KAFKA_BOOTSTRAP_SERVERS --num-drones $$NUM_DRONES"]
         env:
@@ -321,7 +321,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/target_sim:v1
+        image: beni2/target_sim:v1
         command: ["python", "targets/target_sim.py"]
         args: ["--kafka-bootstrap", "kafka:29092"]
         env:
@@ -344,7 +344,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/log_aggregator:v1
+        image: beni2/log_aggregator:v1
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "kafka:29092"
@@ -369,7 +369,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/node_backend:v1
+        image: beni2/node_backend:v1
         ports:
         - containerPort: 3001
         env:
@@ -418,7 +418,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: __YOUR_REGISTRY__/react_client:v1
+        image: beni2/react_client:v1
         ports:
         - containerPort: 8080
 ---
